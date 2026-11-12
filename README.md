@@ -42,12 +42,15 @@ Buzz turns a stack of photos and videos, or just a written idea, into a ready-to
 You can also drop a folder of media into `Reels In` (optionally one song and a `brief.txt`). It starts by itself about two minutes after the copy finishes.
 
 Start and stop: `Start Buzz.bat` and `Stop Buzz.bat`. Finished files are in `Reels Out`.
+To remove Buzz, double-click `Uninstall Buzz.bat`. It removes the background tasks and the Python environment, and asks before touching your saved keys or your reels.
 
-## If Windows blocks the installer
+## Windows 11 Smart App Control
 
-Windows 11 *Smart App Control* can block files that came from the internet. Before extracting, right-click the downloaded zip, choose **Properties**, tick **Unblock** (bottom of the window) and press OK. Then extract and run `Install Buzz.bat` as usual.
+Windows 11 *Smart App Control* only runs software that Microsoft recognises as trusted. Buzz is built from open Python libraries whose compiled files are not signed, so on a PC where Smart App Control is **on**, Windows can block some of them and Buzz may not work there. Buzz does not ask you to lower any security setting.
 
-On some PCs Smart App Control also shows "Part of this app has been blocked" for individual Python library files. If a feature stops working after that, Smart App Control is the cause: it is a Windows security setting and is yours to change in Windows Security (note that once switched off it cannot be switched back on without reinstalling Windows).
+- **Windows 10, and Windows 11 with Smart App Control off or in evaluation:** the installer works as described above.
+- **If Windows blocks the installer file:** before extracting, right-click the downloaded zip, choose **Properties**, tick **Unblock** and press OK, then extract and run `Install Buzz.bat`.
+- **If Windows blocks Python library files ("Part of this app has been blocked"):** install Buzz on another PC where it is not an issue and open it from this one, for example over Tailscale (see *Other optional add-ons* above). A version with signed files is planned.
 
 ## Voiceover
 

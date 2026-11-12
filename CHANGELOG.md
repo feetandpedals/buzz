@@ -2,6 +2,11 @@
 
 AI Reel Studio: reels from photos, videos or just an idea
 
+## 1.0.8 (12 Nov 2026): Uninstaller
+
+- New Uninstall Buzz.bat: removes the background tasks and the Python environment, and separately asks before removing saved keys or deleting the whole folder (reels and accounts are kept by default).
+- README: clearer guidance for Windows 11 Smart App Control, without asking anyone to lower a security setting.
+
 ## 1.0.7 (12 Nov 2026): Key entry
 
 - Saving the Claude key now checks it with Claude straight away: a wrong key is refused with a clear message and nothing is saved.
