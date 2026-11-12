@@ -1,0 +1,17 @@
+# private data and generated files: never upload
+Work/
+Reels In/
+Reels Out/
+Builds/
+.venv/
+assets/cv4/
+__pycache__/
+*.pyc
+*.log
+*.lock
+users.json
+sessions.json
+resets.json
+public_url.txt
+.env
+*.key

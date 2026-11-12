@@ -1,0 +1,2 @@
+# Second OpenCV (version 4), used only for face detection in its own process (assets/cv4)
+opencv-python-headless==4.10.0.84
