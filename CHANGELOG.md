@@ -2,6 +2,16 @@
 
 AI Reel Studio: reels from photos, videos or just an idea
 
+## 1.0.2 (12 Nov 2026): Key entry moved into the app
+
+- The installer no longer asks for the Claude key. You add it on the Settings tab, and a banner reminds you until it is saved.
+- README: how to get past Windows 11 Smart App Control (unblock the zip before extracting).
+
+## 1.0.1 (12 Nov 2026): Install location
+
+- The installer asks where to install (default: Documents\Buzz), copies Buzz there and sets everything up in that folder. No fixed paths are built in.
+- Updating: run the new installer and choose the same folder; reels, accounts and settings are kept.
+
 ## 1.0.0 (12 Nov 2026): First public release
 
 - Two modes in one app: reels from photos and videos, and reels from only an idea.

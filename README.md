@@ -32,15 +32,20 @@ Buzz turns a stack of photos and videos, or just a written idea, into a ready-to
 
 ## How to start
 
-1. Download the latest zip from the **Releases** page and unzip it anywhere permanent.
-2. Double-click **Install Buzz.bat**. It installs Python 3.12 and FFmpeg if they are missing, builds the environment, adds the face finder,
-   asks for your Claude key (kept in Windows Credential Manager, never in a file) and sets up two background tasks that start at sign-in.
+1. Download the latest zip from the **Releases** page and unzip it anywhere (for example Downloads).
+2. Double-click **Install Buzz.bat**. It asks where to install (default: Documents\Buzz; press Enter to accept), copies Buzz there, installs Python 3.12 and FFmpeg if they are missing, builds the environment, adds the face finder,
+   and sets up two background tasks that start at sign-in.
 3. The page opens at http://127.0.0.1:8501. The first screen creates the **owner account** (email and password).
+   Then open **Settings** and paste your Claude key in the Claude card (it is kept in Windows Credential Manager, never in a file).
 4. Open **Create**, add pictures and clips (or type an idea), press the button, and watch **My reels**.
 
 You can also drop a folder of media into `Reels In` (optionally one song and a `brief.txt`). It starts by itself about two minutes after the copy finishes.
 
 Start and stop: `Start Buzz.bat` and `Stop Buzz.bat`. Finished files are in `Reels Out`.
+
+## If Windows blocks the installer
+
+Windows 11 *Smart App Control* can block files that came from the internet. Before extracting, right-click the downloaded zip, choose **Properties**, tick **Unblock** (bottom of the window) and press OK. Then extract and run `Install Buzz.bat` as usual.
 
 ## Voiceover
 
@@ -75,11 +80,11 @@ Buzz is powered by Claude. The code is open: you are free to change it and plug 
 
 ## Updating
 
-Copy the new `src\`, `assets\`, `fonts\` and `.streamlit\` folders over the old ones, run the installer again (it only adds what is missing), then restart both tasks. Keep `Work\`, `Reels In` and `Reels Out`.
+Download the new zip and run `Install Buzz.bat`. Choose the same folder as before: it replaces the program files, adds anything missing, and leaves `Work\`, `Reels In` and `Reels Out` untouched.
 
 ## What is in the box
 
-- `src\` the application (26 Python files, about 4,385 lines).
+- `src\` the application (25 Python files, about 4,375 lines).
 - `CHANGELOG.md` and `Buzz_Changelog_Report.pdf` the history.
 - `requirements.txt` exact versions used and tested; `requirements-cv4.txt` the second OpenCV for faces.
 

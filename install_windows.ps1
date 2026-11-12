@@ -2,11 +2,31 @@
  Buzz installer (Windows 10/11, normal user account, no administrator needed).
  Safe to run again: it only adds what is missing.
  Switches: -SkipSystemInstalls (do not touch Python/FFmpeg), -SkipTasks (do not register background tasks),
-           -SkipKeys (do not ask for the Claude key), -NoStart (do not start the app at the end)
+           -NoStart (do not start the app at the end),
+           -InstallDir <folder> (install there without asking), -Here (install in this folder, no copy)
 #>
-param([switch]$SkipSystemInstalls, [switch]$SkipTasks, [switch]$SkipKeys, [switch]$NoStart)
+param([switch]$SkipSystemInstalls, [switch]$SkipTasks, [switch]$NoStart, [string]$InstallDir = "", [switch]$Here)
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $MyInvocation.MyCommand.Path
+
+# Where to install: ask once (default Documents\Buzz), copy the files there, and continue from that folder.
+if (-not $Here -and -not (Test-Path (Join-Path $root ".installed"))) {
+    if (-not $InstallDir) {
+        $default = Join-Path ([Environment]::GetFolderPath("MyDocuments")) "Buzz"
+        $ans = Read-Host "Install Buzz into '$default'? Press Enter to accept, or type another folder"
+        $InstallDir = if ($ans.Trim()) { $ans.Trim().Trim('"') } else { $default }
+    }
+    $target = [IO.Path]::GetFullPath($InstallDir)
+    if ($target.TrimEnd('\') -ne $root.TrimEnd('\')) {
+        New-Item -ItemType Directory -Force $target | Out-Null
+        Write-Host "Copying Buzz to $target ..."
+        Get-ChildItem -LiteralPath $root -Force | Where-Object { $_.Name -notin @(".venv", "Work", "Reels In", "Reels Out") } | Copy-Item -Destination $target -Recurse -Force
+        $fwd = @(); foreach ($k in @("SkipSystemInstalls", "SkipTasks", "NoStart")) { if ((Get-Variable $k).Value) { $fwd += "-$k" } }
+        & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $target "install_windows.ps1") -Here @fwd
+        exit $LASTEXITCODE
+    }
+}
+New-Item -ItemType File -Force (Join-Path $root ".installed") | Out-Null
 Set-Location $root
 function Step($t) { Write-Host ""; Write-Host "== $t" -ForegroundColor Cyan }
 
@@ -38,20 +58,8 @@ if (-not (Test-Path "assets\cv4\cv2")) { & .\.venv\Scripts\python.exe -m pip ins
 Step "5/8  Folders"
 foreach ($d in @("Reels In", "Reels Out", "Work")) { New-Item -ItemType Directory -Force $d | Out-Null }
 
-Step "6/8  Claude key (stored in Windows Credential Manager, never in a file)"
-if (-not $SkipKeys) {
-    $have = & .\.venv\Scripts\python.exe -c "import keyring;print(bool(keyring.get_password('ai-reel-studio','anthropic')))"
-    if ($have -ne "True") {
-        $sec = Read-Host "Paste your Claude API key (press Enter to skip; you can add it later under Settings)" -AsSecureString
-        $plain = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($sec))
-        if ($plain) {
-            $env:RS_KEY = $plain
-            & .\.venv\Scripts\python.exe -c "import os,keyring;keyring.set_password('ai-reel-studio','anthropic',os.environ['RS_KEY'])"
-            Remove-Item Env:RS_KEY
-            Write-Host "Saved."
-        } else { Write-Host "Skipped. Add the key later on the Settings tab." }
-    } else { Write-Host "A Claude key is already saved." }
-}
+Step "6/8  Claude key"
+Write-Host "Nothing to do here: you add your Claude key inside Buzz, on the Settings tab."
 
 Step "7/8  Background tasks (start at sign-in, watchdog every 5 minutes)"
 if (-not $SkipTasks) {

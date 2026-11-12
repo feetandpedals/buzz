@@ -300,6 +300,10 @@ if who2.button("Sign out", key="signout", use_container_width=True):
     st.rerun()
 
 
+if not keyring.get_password(SERVICE, "anthropic"):
+    st.warning("**One step left:** open the **Settings** tab and paste your Claude key in the Claude card. Reels cannot be made until then.")
+
+
 def nav_tabs(options, value, key):
     """shadcn tabs; if that component cannot load for any reason, plain buttons keep the page usable."""
     try:
