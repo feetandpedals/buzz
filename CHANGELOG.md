@@ -2,6 +2,11 @@
 
 AI Reel Studio: reels from photos, videos or just an idea
 
+## 1.0.3 (12 Nov 2026): Installer fix
+
+- Fixed the background-task step of the installer failing on some Windows setups (a PowerShell variable named args clashed with a built-in).
+- The installer now keeps a log (Work\install.log) and, if anything fails, shows a clear message and waits instead of closing.
+
 ## 1.0.2 (12 Nov 2026): Key entry moved into the app
 
 - The installer no longer asks for the Claude key. You add it on the Settings tab, and a banner reminds you until it is saved.

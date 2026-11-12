@@ -8,6 +8,14 @@
 param([switch]$SkipSystemInstalls, [switch]$SkipTasks, [switch]$NoStart, [string]$InstallDir = "", [switch]$Here)
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $MyInvocation.MyCommand.Path
+trap {
+    Write-Host ""
+    Write-Host "Something went wrong: $_" -ForegroundColor Red
+    Write-Host "Please send a photo of this window. A copy is saved in Work\install.log" -ForegroundColor Yellow
+    try { Stop-Transcript | Out-Null } catch {}
+    Read-Host "Press Enter to close"
+    exit 1
+}
 
 # Where to install: ask once (default Documents\Buzz), copy the files there, and continue from that folder.
 if (-not $Here -and -not (Test-Path (Join-Path $root ".installed"))) {
@@ -28,6 +36,8 @@ if (-not $Here -and -not (Test-Path (Join-Path $root ".installed"))) {
 }
 New-Item -ItemType File -Force (Join-Path $root ".installed") | Out-Null
 Set-Location $root
+New-Item -ItemType Directory -Force "Work" | Out-Null
+try { Start-Transcript -Path (Join-Path $root "Work\install.log") -Append | Out-Null } catch {}
 function Step($t) { Write-Host ""; Write-Host "== $t" -ForegroundColor Cyan }
 
 Step "1/8  Python 3.12"
@@ -63,8 +73,8 @@ Write-Host "Nothing to do here: you add your Claude key inside Buzz, on the Sett
 
 Step "7/8  Background tasks (start at sign-in, watchdog every 5 minutes)"
 if (-not $SkipTasks) {
-    function Register-Reel($name, $exe, $args) {
-        $action = New-ScheduledTaskAction -Execute $exe -Argument $args -WorkingDirectory $root
+    function Register-Reel($name, $exe, $taskArgs) {
+        $action = New-ScheduledTaskAction -Execute $exe -Argument $taskArgs -WorkingDirectory $root
         $t1 = New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME
         $t2 = New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(1) -RepetitionInterval (New-TimeSpan -Minutes 5)
         $set = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable -MultipleInstances IgnoreNew -ExecutionTimeLimit ([TimeSpan]::Zero)
@@ -86,3 +96,4 @@ if (-not $NoStart -and -not $SkipTasks) {
 }
 Write-Host ""
 Write-Host "Done. Open http://127.0.0.1:8501 - the first screen creates the owner account." -ForegroundColor Green
+try { Stop-Transcript | Out-Null } catch {}
