@@ -2,6 +2,10 @@
 
 AI Reel Studio: reels from photos, videos or just an idea
 
+## 1.0.5 (12 Nov 2026): Installer window
+
+- The installer window now closes by itself after a successful install, and waits for a key press only if something went wrong.
+
 ## 1.0.4 (12 Nov 2026): Smoother flow
 
 - After you press Create or Upload, the page moves to My reels by itself and shows the new reel being prepared.
