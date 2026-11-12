@@ -46,11 +46,11 @@ To remove Buzz, double-click `Uninstall Buzz.bat`. It removes the background tas
 
 ## Windows 11 Smart App Control
 
-Windows 11 *Smart App Control* only runs software that Microsoft recognises as trusted. Buzz is built from open Python libraries whose compiled files are not signed, so on a PC where Smart App Control is **on**, Windows can block some of them and Buzz may not work there. Buzz does not ask you to lower any security setting.
+Windows 11 [Smart App Control](https://support.microsoft.com/en-us/windows/security/threat-malware-protection/smart-app-control-frequently-asked-questions) runs an app only if Microsoft's cloud service judges it safe or the app carries a valid signature; Microsoft states there is no way to allow a single app. Buzz is built from open Python libraries whose compiled files are not signed, so on a PC where Smart App Control is **on**, Windows can block some of them and Buzz may not work there. Buzz does not ask you to lower any security setting.
 
-- **Windows 10, and Windows 11 with Smart App Control off or in evaluation:** the installer works as described above.
+- **Windows 10, and Windows 11 with Smart App Control off:** the installer works as described above.
 - **If Windows blocks the installer file:** before extracting, right-click the downloaded zip, choose **Properties**, tick **Unblock** and press OK, then extract and run `Install Buzz.bat`.
-- **If Windows blocks Python library files ("Part of this app has been blocked"):** install Buzz on another PC where it is not an issue and open it from this one, for example over Tailscale (see *Other optional add-ons* above). A version with signed files is planned.
+- **If Windows blocks Python library files ("Part of this app has been blocked"):** install Buzz on another PC where it is not an issue and open it from this one, for example over Tailscale (see *Other optional add-ons* above).
 
 ## Voiceover
 

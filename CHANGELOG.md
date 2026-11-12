@@ -2,6 +2,10 @@
 
 AI Reel Studio: reels from photos, videos or just an idea
 
+## 1.0.9 (12 Nov 2026): README accuracy
+
+- README: the Smart App Control section now states only what Microsoft documents (link added) and no longer mentions evaluation mode or planned signing.
+
 ## 1.0.8 (12 Nov 2026): Uninstaller
 
 - New Uninstall Buzz.bat: removes the background tasks and the Python environment, and separately asks before removing saved keys or deleting the whole folder (reels and accounts are kept by default).
