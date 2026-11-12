@@ -23,11 +23,11 @@ MAXSIDE = 512
 
 
 def client():
-    import anthropic
+    import claude_api
     key = keyring.get_password(SERVICE, "anthropic")
     if not key:
-        raise RuntimeError("No AI key saved. Run the one-time setup page.")
-    return anthropic.Anthropic(api_key=key)
+        raise RuntimeError("No Claude key saved. Add it on the Settings tab.")
+    return claude_api.Client(key)
 
 
 def _jpeg(img_rgb):

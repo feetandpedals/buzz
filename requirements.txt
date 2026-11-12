@@ -1,6 +1,5 @@
 altair==6.3.0
 annotated-types==0.8.0
-anthropic==2.6.0
 anyio==4.16.0
 attrs==26.1.0
 certifi==2026.10.23
@@ -10,7 +9,6 @@ click==8.5.1
 cloudpickle==3.1.2
 decorator==5.3.1
 dlinfo==2.0.0
-docstring_parser==0.18.0
 espeakng-loader==0.2.4
 flatbuffers==25.12.19
 h11==0.16.0
@@ -22,7 +20,6 @@ jaraco.classes==3.4.0
 jaraco.context==6.1.2
 jaraco.functools==4.6.0
 Jinja2==3.1.6
-jiter==0.19.0
 joblib==1.6.0
 jsonschema==4.26.0
 jsonschema-specifications==2025.9.1

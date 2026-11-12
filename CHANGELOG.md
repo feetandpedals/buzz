@@ -2,6 +2,11 @@
 
 AI Reel Studio: reels from photos, videos or just an idea
 
+## 1.0.6 (12 Nov 2026): Lighter Claude connection
+
+- Buzz now talks to Claude directly through a small plain-Python client (claude_api.py) instead of the Anthropic SDK. This removes the SDK and its compiled helper (jiter), which Windows Smart App Control can block, so reels can be made on those PCs.
+- Clearer messages when Claude refuses a key or cannot be reached; automatic retries when Claude is busy.
+
 ## 1.0.5 (12 Nov 2026): Installer window
 
 - The installer window now closes by itself after a successful install, and waits for a key press only if something went wrong.
@@ -57,6 +62,7 @@ AI Reel Studio: reels from photos, videos or just an idea
 - `layout.py / facedetect.py`: Keeps text clear of faces
 - `revise.py`: Plain-language change notes
 - `prompt_reel.py / art_provider.py`: Idea reels: script, scenes, themes, drawn pictures
+- `claude_api.py`: Plain-Python Claude Messages client with retries
 - `voice_provider.py / narration.py`: Kokoro and Google voices, voiceover timing
 - `stock_provider.py`: Pexels stock video
 - `social.py`: Instagram pack
