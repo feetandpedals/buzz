@@ -47,6 +47,8 @@ Start and stop: `Start Buzz.bat` and `Stop Buzz.bat`. Finished files are in `Ree
 
 Windows 11 *Smart App Control* can block files that came from the internet. Before extracting, right-click the downloaded zip, choose **Properties**, tick **Unblock** (bottom of the window) and press OK. Then extract and run `Install Buzz.bat` as usual.
 
+On some PCs Smart App Control also shows "Part of this app has been blocked" for individual Python library files. If a feature stops working after that, Smart App Control is the cause: it is a Windows security setting and is yours to change in Windows Security (note that once switched off it cannot be switched back on without reinstalling Windows).
+
 ## Voiceover
 
 Buzz offers two voices, and you can pick either on the Create page once it is set up:
@@ -84,7 +86,7 @@ Download the new zip and run `Install Buzz.bat`. Choose the same folder as befor
 
 ## What is in the box
 
-- `src\` the application (25 Python files, about 4,375 lines).
+- `src\` the application (25 Python files, about 4,386 lines).
 - `CHANGELOG.md` and `Buzz_Changelog_Report.pdf` the history.
 - `requirements.txt` exact versions used and tested; `requirements-cv4.txt` the second OpenCV for faces.
 

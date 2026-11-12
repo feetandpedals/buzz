@@ -313,7 +313,11 @@ def nav_tabs(options, value, key):
                         label_visibility="collapsed")
 
 
-page = nav_tabs(["Create", "My reels", "Settings"], "Create", "page_tab")
+# After a reel is sent, the page moves itself to My reels: a new tab key makes the tab bar start on the wanted tab.
+if st.session_state.get("goto_tab"):
+    st.session_state["tab_n"] = st.session_state.get("tab_n", 0) + 1
+    st.session_state["tab_cur"] = st.session_state.pop("goto_tab")
+page = nav_tabs(["Create", "My reels", "Settings"], st.session_state.get("tab_cur", "Create"), f"page_tab{st.session_state.get('tab_n', 0)}")
 
 
 # ---------------------------------------------------------------- helpers
@@ -555,8 +559,12 @@ def upload_form():
                 "font": fchoice, "crop_portrait": crop, "collage": collage, "music": "create" if mkmusic else "none",
                 "voice": bool(voice_on), "voice_name": voice_name, "seconds": secs, "music_keywords": mkw,
                 "assets": assets, "opening": names_map.get(open_pick), "closing": names_map.get(close_pick)}), encoding="utf-8")
-            st.success(f"Uploaded '{dest.name}'. It starts in about 2 minutes. Watch it under My reels.")
-            st.toast("Reel queued")
+            if refused:  # stay here so the warning about refused files can be read
+                st.success(f"Uploaded '{dest.name}'. It starts in about 2 minutes. Watch it under My reels.")
+            else:
+                st.session_state["flash"] = f"Uploaded '{dest.name}'. It starts in about 2 minutes."
+                st.session_state["goto_tab"] = "My reels"
+                st.rerun()
 
 
 def theme_sample(key):
@@ -645,8 +653,9 @@ def idea_form():
             "mode": "prompt", "seconds": secs, "language": lang, "font": fchoice,
             "music": "create" if mkmusic else "none", "voice": bool(voice_on), "voice_name": voice_name,
             "background": bg, "stock": bg == "video", "look": theme, "music_keywords": mkw}), encoding="utf-8")
-        st.success(f"Sent '{dest.name}'. It starts in about 2 minutes. Watch it under My reels.")
-        st.toast("Reel queued")
+        st.session_state["flash"] = f"Sent '{dest.name}'. It starts in about 2 minutes."
+        st.session_state["goto_tab"] = "My reels"
+        st.rerun()
 
 
 def create_tab():
@@ -1083,6 +1092,8 @@ def settings_tab():
 if page == "Create":
     create_tab()
 elif page == "My reels":
+    if st.session_state.get("flash"):
+        st.success(st.session_state.pop("flash"))
     watch_for_changes()  # the page refreshes by itself when a reel starts, moves on or finishes
     reels_tab()
 else:

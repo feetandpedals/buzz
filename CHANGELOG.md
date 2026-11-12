@@ -2,6 +2,11 @@
 
 AI Reel Studio: reels from photos, videos or just an idea
 
+## 1.0.4 (12 Nov 2026): Smoother flow
+
+- After you press Create or Upload, the page moves to My reels by itself and shows the new reel being prepared.
+- README: a note for Windows 11 Smart App Control, which can block unsigned Python library files.
+
 ## 1.0.3 (12 Nov 2026): Installer fix
 
 - Fixed the background-task step of the installer failing on some Windows setups (a PowerShell variable named args clashed with a built-in).
