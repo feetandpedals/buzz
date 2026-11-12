@@ -887,27 +887,56 @@ def watch_for_changes():
 
 
 # ---------------------------------------------------------------- settings
-def key_card(title, blurb, entry, save_fn, key_prefix, sample=None):
+def check_claude_key(value):
+    """Asks Claude for one word so a wrong key is caught when it is saved. Returns None when accepted, else a message."""
+    import claude_api
+    try:
+        claude_api.Client(value).messages.create(model="claude-sonnet-5-5", max_tokens=1,
+                                                 messages=[{"role": "user", "content": "Hi"}])
+    except Exception as e:
+        return str(e)[:220]
+    return None
+
+
+def key_card(title, blurb, entry, save_fn, key_prefix, sample=None, check=None):
     saved = bool(keyring.get_password(SERVICE, entry))
+    msg_key, in_key = key_prefix + "_msg", key_prefix + "_in"
+
+    def _save():  # runs before the page redraws, so the box can be cleared and the button greyed out afterwards
+        v = (st.session_state.get(in_key) or "").strip().strip("\"'")
+        if not v:
+            st.session_state[msg_key] = ("warn", "Paste the key first.")
+            return
+        if check:
+            err = check(v)
+            if err:
+                st.session_state[msg_key] = ("error", err + " Nothing was saved.")
+                return
+        save_fn(v)
+        st.session_state[in_key] = ""
+        st.session_state[msg_key] = ("ok", "Key saved" + (" and accepted." if check else "."))
+
     with st.container(border=True):
         a, b = st.columns([3, 1])
         a.markdown(f"**{title}**")
         b.markdown(f'<div style="text-align:right">{pill("Connected", "green") if saved else pill("Not set", "gray")}</div>',
                    unsafe_allow_html=True)
         st.caption(blurb)
-        val = st.text_input("Key (stored in Windows Credential Manager, never shown again)", type="password",
-                            key=key_prefix + "_in", placeholder="Paste the key here")
+        val = st.text_input("Key (stored in Windows Credential Manager, never shown again)", type="password", key=in_key,
+                            placeholder="Paste a new key here to replace the saved one" if saved else "Paste the key here")
         c1, c2 = st.columns(2)
-        if c1.button("Save key", key=key_prefix + "_save", type="primary", use_container_width=True):
-            if val.strip():
-                save_fn(val)
-                st.success("Saved.")
-                st.rerun()
-            else:
-                st.warning("Paste the key first.")
+        c1.button("Save key", key=key_prefix + "_save", type="primary", use_container_width=True, on_click=_save,
+                  disabled=not (val or "").strip())
         if saved and c2.button("Remove key", key=key_prefix + "_del", use_container_width=True):
             keyring.delete_password(SERVICE, entry)
             st.rerun()
+        kind, text = st.session_state.pop(msg_key, (None, None))
+        if kind == "ok":
+            st.success(text)
+        elif kind == "error":
+            st.error(text)
+        elif kind == "warn":
+            st.warning(text)
         if saved and sample:
             sample()
 
@@ -1068,7 +1097,7 @@ def settings_tab():
              "carry a credit line in the Instagram pack.", stock_provider.ENTRY, stock_provider.save_key, "px")
     key_card("Claude (writing and planning)", "Required for every reel: it looks at your pictures, plans the story and writes the "
              "captions. Get a key at console.anthropic.com.", "anthropic",
-             lambda v: keyring.set_password(SERVICE, "anthropic", v.strip()), "cl")
+             lambda v: keyring.set_password(SERVICE, "anthropic", v.strip()), "cl", check=check_claude_key)
     section("System")
     with st.container(border=True):
         ok, detail = worker_state()

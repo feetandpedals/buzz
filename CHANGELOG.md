@@ -2,6 +2,11 @@
 
 AI Reel Studio: reels from photos, videos or just an idea
 
+## 1.0.7 (12 Nov 2026): Key entry
+
+- Saving the Claude key now checks it with Claude straight away: a wrong key is refused with a clear message and nothing is saved.
+- After a key is saved the box clears and Save is greyed out until you type a new key, so it is obvious the key was stored.
+
 ## 1.0.6 (12 Nov 2026): Lighter Claude connection
 
 - Buzz now talks to Claude directly through a small plain-Python client (claude_api.py) instead of the Anthropic SDK. This removes the SDK and its compiled helper (jiter), which Windows Smart App Control can block, so reels can be made on those PCs.

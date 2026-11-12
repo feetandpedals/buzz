@@ -86,7 +86,7 @@ Download the new zip and run `Install Buzz.bat`. Choose the same folder as befor
 
 ## What is in the box
 
-- `src\` the application (26 Python files, about 4,440 lines).
+- `src\` the application (26 Python files, about 4,469 lines).
 - `CHANGELOG.md` and `Buzz_Changelog_Report.pdf` the history.
 - `requirements.txt` exact versions used and tested; `requirements-cv4.txt` the second OpenCV for faces.
 
