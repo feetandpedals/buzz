@@ -17,7 +17,7 @@ Buzz turns a stack of photos and videos, or just a written idea, into a ready-to
 ## What it does
 
 - **Runs anywhere.** Windows PC, Linux PC or a Linux server, with the same features. Several people can use one server.
-- **Your reels, your key.** Everyone sees only their own reels and can use their own Claude key. The owner sets daily and weekly reel limits and token limits for each person or as family defaults, and has an emergency pause switch.
+- **Your reels, your key.** Everyone sees only their own reels and can use their own Claude key. The owner sets simple reels-per-day and reels-per-week limits for everyone or for each person, and has an emergency pause switch.
 - **Two ways to start.** Upload photos and videos (with your own song, music made for you, or silent), or type an idea and get a finished reel from the words alone.
 - **Smart editing.** The AI studies your pictures and clips, plans a story, cuts on the beat, keeps text clear of faces, and lets you choose the opening and closing shot.
 - **Instagram pack.** Hook, caption, 5 hashtags, cover text, best time to post and alt text for every reel.
@@ -104,7 +104,7 @@ Download the new zip and run `Install Buzz.bat`. Choose the same folder as befor
 
 ## What is in the box
 
-- `src\` the application (30 Python files, about 5,102 lines).
+- `src\` the application (30 Python files, about 5,083 lines).
 - `CHANGELOG.md` and `Buzz_Changelog_Report.pdf` the history.
 - `requirements.txt` exact versions used and tested; `requirements-cv4.txt` the second OpenCV for faces.
 

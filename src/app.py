@@ -1102,56 +1102,37 @@ def own_key_section():
 
 
 def usage_section():
-    section("Usage and limits", "Who uses the shared Claude key, how much, and the limits. Anyone with their own key is not limited here.")
+    section("Reel limits", "How many reels each person can make. 0 means no limit. You are never limited.")
     p = usage.policy()
+    dp = p["default"]
     with st.container(border=True):
-        a, b = st.columns(2)
-        a.toggle("Pause AI for everyone (emergency stop)", value=p["kill"], key="u_kill")
-        b.number_input("Studio budget on the shared key, tokens per month (0 = no limit)", min_value=0, step=100000,
-                       value=int(p["global_monthly_tokens"]), key="u_gl")
-        c, d = st.columns(2)
-        c.number_input("Price per million input tokens (optional, for cost estimates)", min_value=0.0, value=float(p["price_in_per_m"]), key="u_pin")
-        d.number_input("Price per million output tokens (optional)", min_value=0.0, value=float(p["price_out_per_m"]), key="u_pout")
-        tin, tout = usage.month_in_out()
-        est = usage.cost_estimate(tin, tout)
-        st.caption(f"Shared key this month: {tin + tout:,} tokens ({tin:,} in, {tout:,} out)" + (f", about {est:,.2f} in your price currency." if est is not None else ". Enter prices above to see a cost estimate."))
-        st.markdown("**Family defaults** (apply to everyone you have not set individually below)")
-        dp = p["default"]
-        f1, f2, f3, f4 = st.columns(4)
-        f1.checkbox("Can use the shared key", value=bool(dp["shared_key"]), key="u_d_sh")
-        f2.number_input("Tokens per month", min_value=0, step=50000, value=int(dp["monthly_tokens"]), key="u_d_mt", help="0 = no limit")
-        f3.number_input("Reels per day", min_value=0, step=1, value=int(dp["daily_reels"]), key="u_d_dr", help="0 = no limit")
-        f4.number_input("Reels per week", min_value=0, step=1, value=int(dp.get("weekly_reels", 0)), key="u_d_wr", help="0 = no limit. The week runs Monday to Sunday.")
-        st.markdown("**People** (the owner is never limited). A person's own numbers replace the defaults.")
+        a, b, c = st.columns([3, 2, 2])
+        a.markdown("**Everyone** (unless set below)")
+        b.number_input("Reels per day", min_value=0, step=1, value=int(dp["daily_reels"]), key="u_d_dr")
+        c.number_input("Reels per week", min_value=0, step=1, value=int(dp.get("weekly_reels", 0)), key="u_d_wr")
         users = {e: r for e, r in auth.list_users().items() if r != "owner"}
-        if not users:
-            st.caption("No members yet. Add one under People.")
         for email in users:
             up = usage.user_policy(email)
             s = usage.stats(email)
-            x1, x2, x3, x4, x5 = st.columns([3, 2, 2, 2, 2])
-            x1.markdown(f"{email}  \n<span style='opacity:.7;font-size:.85rem'>{s['reels_today']} today, {s['reels_week']} this week, {s['reels_month']} this month, {s['shared_tokens']:,} shared tokens, "
-                        f"{s['own_tokens']:,} own-key tokens{' · own key' if usage.has_own_key(email) else ''}</span>", unsafe_allow_html=True)
-            x2.checkbox("Can use the shared key", value=bool(up["shared_key"]), key=f"u_sh_{email}")
-            x3.number_input("Tokens per month", min_value=0, step=50000, value=int(up["monthly_tokens"]), key=f"u_mt_{email}", help="0 = no limit")
-            x4.number_input("Reels per day", min_value=0, step=1, value=int(up["daily_reels"]), key=f"u_dr_{email}", help="0 = no limit")
-            x5.number_input("Reels per week", min_value=0, step=1, value=int(up.get("weekly_reels", 0)), key=f"u_wr_{email}", help="0 = no limit. Monday to Sunday.")
-        if st.button("Save limits", type="primary", key="u_save"):
+            x1, x2, x3 = st.columns([3, 2, 2])
+            x1.markdown(f"{email}  \n<span style='opacity:.7;font-size:.85rem'>{s['reels_today']} today, {s['reels_week']} this week</span>",
+                        unsafe_allow_html=True)
+            x2.number_input("Reels per day", min_value=0, step=1, value=int(up["daily_reels"]), key=f"u_dr_{email}", label_visibility="collapsed")
+            x3.number_input("Reels per week", min_value=0, step=1, value=int(up.get("weekly_reels", 0)), key=f"u_wr_{email}", label_visibility="collapsed")
+        st.toggle("Pause everyone's reels", value=p["kill"], key="u_kill")
+        if st.button("Save", type="primary", key="u_save"):
             q = usage.policy()
-            q.update(kill=bool(st.session_state.get("u_kill")), global_monthly_tokens=int(st.session_state.get("u_gl") or 0),
-                     price_in_per_m=float(st.session_state.get("u_pin") or 0), price_out_per_m=float(st.session_state.get("u_pout") or 0))
-            q["default"] = {"shared_key": bool(st.session_state.get("u_d_sh")), "monthly_tokens": int(st.session_state.get("u_d_mt") or 0),
-                            "daily_reels": int(st.session_state.get("u_d_dr") or 0), "weekly_reels": int(st.session_state.get("u_d_wr") or 0)}
+            q["kill"] = bool(st.session_state.get("u_kill"))
+            q["default"] = {"shared_key": True, "monthly_tokens": 0, "daily_reels": int(st.session_state.get("u_d_dr") or 0),
+                            "weekly_reels": int(st.session_state.get("u_d_wr") or 0)}
             q["users"] = {}
             for email in users:
-                mine = {"shared_key": bool(st.session_state.get(f"u_sh_{email}")),
-                        "monthly_tokens": int(st.session_state.get(f"u_mt_{email}") or 0),
-                        "daily_reels": int(st.session_state.get(f"u_dr_{email}") or 0),
+                mine = {"shared_key": True, "monthly_tokens": 0, "daily_reels": int(st.session_state.get(f"u_dr_{email}") or 0),
                         "weekly_reels": int(st.session_state.get(f"u_wr_{email}") or 0)}
-                if mine != q["default"]:  # only people who differ from the family defaults are stored
+                if mine != q["default"]:
                     q["users"][usage.norm(email)] = mine
             usage.save_policy(q)
-            st.success("Limits saved.")
+            st.success("Saved.")
 
 
 def settings_tab():

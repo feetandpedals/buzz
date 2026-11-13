@@ -2,6 +2,12 @@
 
 AI Reel Studio: reels from photos, videos or just an idea
 
+## 2.1.1 (13 Nov 2026): Simpler reel limits
+
+- Settings now has one plain Reel limits box: reels per day and reels per week for everyone, and the same two boxes for each person. 0 means no limit.
+- Removed the token, shared-key, budget and price controls from the screen; saving the limits lets listed people use the studio's key.
+- One switch to pause everyone's reels.
+
 ## 2.1.0 (13 Nov 2026): Weekly reel limits and family defaults
 
 - New weekly reel limit per person (Monday to Sunday), next to the daily limit.
