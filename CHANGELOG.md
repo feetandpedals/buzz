@@ -2,6 +2,13 @@
 
 AI Reel Studio: reels from photos, videos or just an idea
 
+## 2.1.0 (13 Nov 2026): Weekly reel limits and family defaults
+
+- New weekly reel limit per person (Monday to Sunday), next to the daily limit.
+- New family defaults in Settings: set the shared-key permission, monthly tokens, reels per day and reels per week once for everyone; individual settings replace them. People who match the defaults follow later changes.
+- Each person's line in Usage and limits shows reels made today, this week and this month.
+- Automated tests for the weekly limit and the defaults.
+
 ## 2.0.0 (12 Nov 2026): Linux, servers and several users
 
 - Linux version: installer (install_linux.sh), uninstaller, systemd services with CPU and memory caps, nginx file with websocket support, server guide (docs/SERVER.md). Tested on Ubuntu 24.04 including a from-scratch install.

@@ -18,7 +18,7 @@ SERVICE = "ai-reel-studio"
 _ctx = {"user": "", "reel": ""}
 
 DEFAULTS = {"kill": False, "global_monthly_tokens": 0, "price_in_per_m": 0.0, "price_out_per_m": 0.0,
-            "default": {"monthly_tokens": 0, "daily_reels": 0, "shared_key": False}, "users": {}}
+            "default": {"monthly_tokens": 0, "daily_reels": 0, "weekly_reels": 0, "shared_key": False}, "users": {}}
 
 
 class LimitError(RuntimeError):
@@ -130,7 +130,9 @@ def stats(email):
     mine = [r for r in _rows() if r.get("user") == norm(email) and r.get("ts", "")[:7] == m]
     calls = [r for r in mine if r.get("op") != "reel_start"]
     starts = [r for r in mine if r.get("op") == "reel_start"]
-    return {"shared_tokens": tokens([r for r in calls if r.get("key") == "shared"]),
+    wk = time.strftime("%Y-%m-%d", time.localtime(time.time() - time.localtime().tm_wday * 86400))  # Monday of this week
+    wk_starts = [r for r in [x for x in _rows() if x.get("user") == norm(email) and x.get("op") == "reel_start"] if r.get("ts", "")[:10] >= wk]
+    return {"reels_week": len(wk_starts), "shared_tokens": tokens([r for r in calls if r.get("key") == "shared"]),
             "own_tokens": tokens([r for r in calls if r.get("key") == "own"]),
             "reels_month": len(starts), "reels_today": len([r for r in starts if r["ts"][:10] == d])}
 
@@ -214,6 +216,8 @@ def check_reel_start(email):
         up = user_policy(email, _is_admin(email))
         if up["daily_reels"] and stats(email)["reels_today"] >= up["daily_reels"]:
             raise LimitError(f"You have reached today's limit of {up['daily_reels']} reels. Please try again tomorrow.")
+        if up.get("weekly_reels") and stats(email)["reels_week"] >= up["weekly_reels"]:
+            raise LimitError(f"You have reached this week's limit of {up['weekly_reels']} reels. The week starts again on Monday.")
     return source
 
 
