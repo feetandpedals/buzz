@@ -55,7 +55,11 @@ def main():
                 if st == "done" or st == "failed" or not _ready(folder):
                     continue  # failed jobs wait for a retry flag
                 logging.info("job start: %s (was %s)", folder.name, st)
-                ok = pipeline.run_job(folder)
+                try:
+                    ok = pipeline.run_job(folder)
+                finally:
+                    import voice_provider
+                    voice_provider.release()  # give the voice model's memory back after every reel
                 logging.info("job %s: %s", "finished" if ok else "FAILED", folder.name)
                 notify.send("Reel ready" if ok else "Reel failed", f"{folder.name}: " + (
                     "finished. Open the status page to watch it." if ok else "something went wrong. "
@@ -69,7 +73,11 @@ def main():
                     req.unlink()
                     logging.info("revision start: %s | %s", jd.name, note[:120])
                     (jd / "revision_result.json").write_text(json.dumps({"state": "working", "note": note}), encoding="utf-8")
-                    res = revise.revise(jd.name, note)
+                    try:
+                        res = revise.revise(jd.name, note)
+                    finally:
+                        import voice_provider
+                        voice_provider.release()
                     res.update(state="done" if res["ok"] else "failed", note=note)
                     (jd / "revision_result.json").write_text(json.dumps(res, ensure_ascii=False), encoding="utf-8")
                     logging.info("revision %s: %s", res["state"], jd.name)

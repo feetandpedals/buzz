@@ -11,7 +11,7 @@ from PIL import Image, ImageDraw, ImageFont
 from common import FFMPEG, ROOT
 
 W, H = 1080, 1920
-NO_WINDOW = 0x08000000
+NO_WINDOW = 0x08000000 if sys.platform == "win32" else 0
 
 
 # ---------- face finding (separate process, cached) ----------

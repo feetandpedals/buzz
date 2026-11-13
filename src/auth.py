@@ -82,6 +82,10 @@ def verify(email, password):
     return u["role"] if (u and ok) else None
 
 
+def role_of(email):
+    return _load(USERS).get(norm(email), {}).get("role")
+
+
 def list_users():
     return {e: u["role"] for e, u in _load(USERS).items()}
 

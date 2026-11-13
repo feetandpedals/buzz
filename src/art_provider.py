@@ -15,6 +15,7 @@ from PIL import Image
 
 import ai_plan
 import progress
+from common import ROOT
 
 SVG_NS = "http://www.w3.org/2000/svg"
 TAGS = {"svg", "g", "defs", "linearGradient", "radialGradient", "stop", "rect", "circle", "ellipse", "path", "polygon",
@@ -39,6 +40,22 @@ Rules:
 - Make it clearly relate to the scene's meaning. Keep it under 60 simple shapes."""
 
 
+def _resvg_py():
+    try:
+        import resvg_py  # noqa: F401
+        return True
+    except Exception:
+        return False
+
+
+def _resvg():
+    for d in (ROOT / "bin", Path.home() / ".local" / "bin", Path("/usr/local/bin")):
+        for n in ("resvg", "resvg.exe"):
+            if (d / n).exists():
+                return str(d / n)
+    return shutil.which("resvg")
+
+
 def _browser():
     for p in (r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
               r"C:\Program Files\Microsoft\Edge\Application\msedge.exe",
@@ -46,11 +63,11 @@ def _browser():
               r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe"):
         if Path(p).exists():
             return p
-    return shutil.which("msedge") or shutil.which("chrome")
+    return shutil.which("msedge") or shutil.which("chrome") or shutil.which("google-chrome") or shutil.which("chromium")
 
 
 def available():
-    return bool(_browser())
+    return bool(_resvg_py() or _resvg() or _browser())
 
 
 def _local(tag):
@@ -96,6 +113,32 @@ def sanitize(text):
 
 def _rasterise(svg, out_png):
     """SVG text -> 1080x1920 PNG through the PC's own browser. Returns True on success."""
+    if _resvg_py():  # preferred on servers: Python package, no browser and no extra program
+        try:
+            import io
+            import resvg_py
+            png = resvg_py.svg_to_bytes(svg_string=svg, width=1080, height=1920, background="#000000")
+            with Image.open(io.BytesIO(bytes(png))) as im:
+                im.convert("RGB").resize((1080, 1920)).save(out_png)
+            return True
+        except Exception:
+            pass
+    rs = _resvg()
+    if rs:  # a resvg program, when one is installed
+        tmp = Path(tempfile.mkdtemp(prefix="reelart_"))
+        try:
+            svg_file = tmp / "a.svg"
+            svg_file.write_text(svg, encoding="utf-8")
+            png = tmp / "a.png"
+            subprocess.run([rs, "-w", "1080", "-h", "1920", "--background", "#000000", str(svg_file), str(png)], capture_output=True, timeout=60)
+            if png.exists():
+                with Image.open(png) as im:
+                    im.convert("RGB").resize((1080, 1920)).save(out_png)
+                return True
+        except Exception:
+            pass
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
     exe = _browser()
     if not exe:
         return False

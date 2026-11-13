@@ -1,0 +1,21 @@
+# systemd USER service: the background worker. Install to ~/.config/systemd/user/ and edit BUZZ_DIR below.
+# Enable lingering once so it keeps running after logout:  loginctl enable-linger $USER
+[Unit]
+Description=Buzz worker (renders reels)
+After=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/buzz
+ExecStart=%h/buzz/.venv/bin/python %h/buzz/src/worker.py
+Restart=always
+RestartSec=5
+# keep rendering from starving other apps on the same machine
+Nice=10
+CPUQuota=300%
+MemoryMax=6G
+# secrets: master key may be supplied here instead of the key file (optional)
+#Environment=BUZZ_MASTER_KEY=
+
+[Install]
+WantedBy=default.target

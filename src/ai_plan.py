@@ -6,7 +6,7 @@ import re
 from pathlib import Path
 
 import cv2
-import keyring
+import secrets_store as vault
 import numpy as np
 from PIL import Image, ImageOps
 
@@ -23,11 +23,14 @@ MAXSIDE = 512
 
 
 def client():
+    """A Claude client for the user the current job belongs to: their own key if they added one, else the studio key
+    (when allowed), with limits checked before each call and token use recorded."""
     import claude_api
-    key = keyring.get_password(SERVICE, "anthropic")
-    if not key:
-        raise RuntimeError("No Claude key saved. Add it on the Settings tab.")
-    return claude_api.Client(key)
+    import usage
+    ctx = usage.context()
+    key, source = usage.key_for(ctx["user"])
+    return claude_api.Client(key, before=lambda: usage.check_before_call(ctx["user"], source),
+                             on_usage=lambda model, u: usage.record(ctx["user"], ctx["reel"], "claude", model, u, source))
 
 
 def _jpeg(img_rgb):

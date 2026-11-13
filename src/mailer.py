@@ -6,14 +6,14 @@ import smtplib
 import ssl
 from email.message import EmailMessage
 
-import keyring
+import secrets_store as vault
 
 SERVICE, ENTRY = "ai-reel-studio", "smtp"
 
 
 def config():
     try:
-        raw = keyring.get_password(SERVICE, ENTRY)
+        raw = vault.get_password(SERVICE, ENTRY)
         return json.loads(raw) if raw else None
     except Exception:
         return None
@@ -24,13 +24,13 @@ def available():
 
 
 def save(host, port, user, password, sender=None):
-    keyring.set_password(SERVICE, ENTRY, json.dumps({"host": host.strip(), "port": int(port), "user": user.strip(),
+    vault.set_password(SERVICE, ENTRY, json.dumps({"host": host.strip(), "port": int(port), "user": user.strip(),
                                                       "password": password, "from": (sender or user).strip()}))
 
 
 def clear():
     try:
-        keyring.delete_password(SERVICE, ENTRY)
+        vault.delete_password(SERVICE, ENTRY)
     except Exception:
         pass
 

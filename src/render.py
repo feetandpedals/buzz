@@ -16,7 +16,7 @@ from PIL import Image, ImageOps
 import encoder
 import layout
 import progress
-from common import FFMPEG, FFPROBE, ROOT
+from common import FFMPEG, FFPROBE, ROOT, font_path
 
 pillow_heif.register_heif_opener()
 
@@ -36,19 +36,19 @@ THEMES = {
                 "grade": ("colorbalance=rs=0.05:gs=0.01:bs=-0.08:rm=0.06:gm=0.01:bm=-0.07:rh=0.03:bh=-0.04,"
                           "eq=saturation=1.12:contrast=1.04")},
     # neutral: everything else (Palatino Bold, white with black outline, light grade, no flashes)
-    "neutral": {"font": "C\\:/Windows/Fonts/palab.ttf", "fill": "white", "outline": "black",
+    "neutral": {"font": _ff(font_path("palab.ttf", "Cardo-Bold.ttf")), "fill": "white", "outline": "black",
                 "glow": "0xFFFFFF", "flash": False, "grade": "eq=saturation=1.06:contrast=1.03"},
 }
 # Font choices offered when uploading (key -> label, file). "auto" keeps the style's own font.
 FONTS = {
     "auto": ("Automatic (matches the style)", None),
     "yatra": ("Yatra One: festive, Indian", ROOT / "fonts" / "YatraOne.ttf"),
-    "palatino": ("Palatino Bold: classic book", Path("C:/Windows/Fonts/palab.ttf")),
+    "palatino": ("Palatino Bold: classic book", font_path("palab.ttf", "Cardo-Bold.ttf")),
     "playfair": ("Playfair Display: elegant magazine", ROOT / "fonts" / "PlayfairDisplay.ttf"),
     "cinzel": ("Cinzel: cinematic capitals", ROOT / "fonts" / "Cinzel.ttf"),
-    "georgia": ("Georgia Bold: friendly serif", Path("C:/Windows/Fonts/georgiab.ttf")),
-    "segoe": ("Segoe UI Black: modern clean", Path("C:/Windows/Fonts/seguibl.ttf")),
-    "impact": ("Impact: bold and punchy", Path("C:/Windows/Fonts/impact.ttf")),
+    "georgia": ("Georgia Bold: friendly serif", font_path("georgiab.ttf", "PT_Serif-Web-Bold.ttf")),
+    "segoe": ("Segoe UI Black: modern clean", font_path("seguibl.ttf", "Poppins-Black.ttf")),
+    "impact": ("Impact: bold and punchy", font_path("impact.ttf", "Anton-Regular.ttf")),
 }
 CUR = dict(THEMES["festive"], name="festive", font_raw=str(ROOT / "fonts" / "YatraOne.ttf"))
 STYLE_VERSION = "v8"

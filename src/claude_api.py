@@ -16,10 +16,13 @@ class ClaudeError(RuntimeError):
 
 
 class _Messages:
-    def __init__(self, key):
+    def __init__(self, key, before=None, on_usage=None):
         self._key = key
+        self._before, self._on_usage = before, on_usage
 
     def create(self, model, max_tokens, messages, **extra):
+        if self._before:
+            self._before()  # limits are checked before every request
         body = json.dumps({"model": model, "max_tokens": max_tokens, "messages": messages, **extra}).encode("utf-8")
         headers = {"x-api-key": self._key, "anthropic-version": VERSION, "content-type": "application/json"}
         last = None
@@ -45,10 +48,15 @@ class _Messages:
             time.sleep(min(2 ** attempt * 2, 30))
         else:
             raise last
+        if self._on_usage:
+            try:
+                self._on_usage(model, data.get("usage"))
+            except Exception:
+                pass
         blocks = [SimpleNamespace(type=b.get("type"), text=b.get("text", "")) for b in data.get("content", [])]
         return SimpleNamespace(content=blocks, stop_reason=data.get("stop_reason"), usage=data.get("usage"))
 
 
 class Client:
-    def __init__(self, api_key):
-        self.messages = _Messages(api_key)
+    def __init__(self, api_key, before=None, on_usage=None):
+        self.messages = _Messages(api_key, before, on_usage)

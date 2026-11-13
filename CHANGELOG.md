@@ -2,6 +2,16 @@
 
 AI Reel Studio: reels from photos, videos or just an idea
 
+## 2.0.0 (12 Nov 2026): Linux, servers and several users
+
+- Linux version: installer (install_linux.sh), uninstaller, systemd services with CPU and memory caps, nginx file with websocket support, server guide (docs/SERVER.md). Tested on Ubuntu 24.04 including a from-scratch install.
+- Cross-platform code: encrypted secret store on Linux (Windows Credential Manager on Windows), picture drawing without a browser (resvg), free fonts bundled for Linux, worker control without Windows Task Scheduler.
+- Per-user reels: members see only their own reels; the owner sees all.
+- Per-user Claude keys, usage tracking (tokens only), per-person monthly token and daily reel limits, a studio monthly budget, optional cost estimates and a Pause AI for everyone switch.
+- The free voice now runs in its own helper process, so its memory (about 1 GB) returns to the system after every reel; it restarts by itself if it ever stops.
+- Line endings of scripts are fixed to Unix; automated tests for the per-user rules (tests/test_per_user.py).
+- Server lifecycle verified on Ubuntu 24.04: services under a dedicated user restart within seconds after a crash and the interrupted reel resumes; the nginx proxy passes websockets; the uninstaller removes services and environment but keeps reels, accounts and keys.
+
 ## 1.0.9 (12 Nov 2026): README accuracy
 
 - README: the Smart App Control section now states only what Microsoft documents (link added) and no longer mentions evaluation mode or planned signing.
@@ -67,7 +77,9 @@ AI Reel Studio: reels from photos, videos or just an idea
 
 ## Modules
 
-- `worker.py`: Background worker: one job at a time, restarts itself
+- `worker.py / service_ctl.py`: Background worker: one job at a time, restarts itself; start and stop on any system
+- `secrets_store.py`: Where keys are kept: Credential Manager on Windows, an encrypted file on Linux
+- `usage.py`: Reel owners, per-user keys, usage tracking and limits
 - `pipeline.py`: One folder of media to one finished reel
 - `ingest.py`: Reads and catalogues photos and videos
 - `music.py / music_provider.py`: Beat and energy analysis; original music generator
@@ -77,7 +89,7 @@ AI Reel Studio: reels from photos, videos or just an idea
 - `revise.py`: Plain-language change notes
 - `prompt_reel.py / art_provider.py`: Idea reels: script, scenes, themes, drawn pictures
 - `claude_api.py`: Plain-Python Claude Messages client with retries
-- `voice_provider.py / narration.py`: Kokoro and Google voices, voiceover timing
+- `voice_provider.py / voice_worker.py / narration.py`: Kokoro (in its own helper process) and Google voices, voiceover timing
 - `stock_provider.py`: Pexels stock video
 - `social.py`: Instagram pack
 - `progress.py`: Real-time progress

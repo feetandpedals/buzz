@@ -1,0 +1,16 @@
+# systemd USER service: the web page, bound to localhost only (nginx is the public door).
+[Unit]
+Description=Buzz web page
+After=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/buzz
+ExecStart=%h/buzz/.venv/bin/python -m streamlit run %h/buzz/src/app.py --server.address 127.0.0.1 --server.port 8501 --server.headless true --browser.gatherUsageStats false --server.maxUploadSize 4000
+Restart=always
+RestartSec=5
+Nice=5
+MemoryMax=2G
+
+[Install]
+WantedBy=default.target

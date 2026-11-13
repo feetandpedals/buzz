@@ -7,12 +7,14 @@ import time
 from datetime import datetime
 from pathlib import Path
 
-import keyring
+import secrets_store as vault
+import usage
 import streamlit as st
 import streamlit_shadcn_ui as ui  # MIT licensed shadcn components for Streamlit
 
 ROOT = Path(__file__).resolve().parent.parent
 WORK, REELS_IN, REELS_OUT = ROOT / "Work", ROOT / "Reels In", ROOT / "Reels Out"
+from common import font_path  # noqa: E402
 TASK = "Buzz Worker"
 SERVICE = "ai-reel-studio"
 try:  # the address of this page on your own devices (Tailscale); kept in a small file, not in the code
@@ -264,16 +266,13 @@ def worker_state():
 
 
 def start_worker():
-    subprocess.run(["schtasks", "/Change", "/TN", TASK, "/ENABLE"], capture_output=True)
-    subprocess.run(["schtasks", "/Run", "/TN", TASK], capture_output=True)
+    import service_ctl
+    service_ctl.start_worker(TASK)
 
 
 def stop_worker():
-    subprocess.run(["schtasks", "/Change", "/TN", TASK, "/DISABLE"], capture_output=True)
-    lock = WORK / "worker.lock"
-    if lock.exists():
-        subprocess.run(["taskkill", "/PID", lock.read_text().strip(), "/F"], capture_output=True)
-        lock.unlink(missing_ok=True)
+    import service_ctl
+    service_ctl.stop_worker(TASK, WORK / "worker.lock")
 
 
 # ---- header ----
@@ -300,8 +299,12 @@ if who2.button("Sign out", key="signout", use_container_width=True):
     st.rerun()
 
 
-if not keyring.get_password(SERVICE, "anthropic"):
+if OWNER and not vault.get_password(SERVICE, "anthropic"):
     st.warning("**One step left:** open the **Settings** tab and paste your Claude key in the Claude card. Reels cannot be made until then.")
+elif not OWNER:
+    _ok, _why = usage.can_make_reels(st.session_state.get("user_email"))
+    if not _ok:
+        st.warning("**One step left:** " + _why)
 
 
 def nav_tabs(options, value, key):
@@ -328,7 +331,7 @@ def font_sample(key, label, path):
     if not out.exists():
         out.parent.mkdir(parents=True, exist_ok=True)
         im = Image.new("RGB", (520, 86), (24, 24, 28))
-        font = ImageFont.truetype(str(path or Path("C:/Windows/Fonts/palab.ttf")), 46)
+        font = ImageFont.truetype(str(path or font_path("palab.ttf", "Cardo-Bold.ttf")), 46)
         ImageDraw.Draw(im).text((16, 12), "Diwali Ride 2026", font=font, fill=(255, 153, 51), stroke_width=2,
                                 stroke_fill=(122, 12, 20))
         im.save(out)
@@ -558,7 +561,8 @@ def upload_form():
             (dest / "options.json").write_text(json.dumps({
                 "font": fchoice, "crop_portrait": crop, "collage": collage, "music": "create" if mkmusic else "none",
                 "voice": bool(voice_on), "voice_name": voice_name, "seconds": secs, "music_keywords": mkw,
-                "assets": assets, "opening": names_map.get(open_pick), "closing": names_map.get(close_pick)}), encoding="utf-8")
+                "assets": assets, "opening": names_map.get(open_pick), "closing": names_map.get(close_pick),
+                "owner": st.session_state.get("user_email")}), encoding="utf-8")
             if refused:  # stay here so the warning about refused files can be read
                 st.success(f"Uploaded '{dest.name}'. It starts in about 2 minutes. Watch it under My reels.")
             else:
@@ -580,7 +584,7 @@ def theme_sample(key):
         d = ImageDraw.Draw(im)
         for y in range(h):
             d.line([(0, y), (w, y)], fill=tuple(int(top[k] + (bot[k] - top[k]) * y / h) for k in range(3)))
-        font = ImageFont.truetype("C:/Windows/Fonts/georgiab.ttf", 40)
+        font = ImageFont.truetype(str(font_path("georgiab.ttf", "PT_Serif-Web-Bold.ttf")), 40)
         d.text((16, 22), "Aa Reel", font=font, fill=fg, stroke_width=2, stroke_fill=edge)
         d.rounded_rectangle([16, 84, 96, 92], radius=4, fill=acc)
         im.save(out)
@@ -652,7 +656,8 @@ def idea_form():
         (dest / "options.json").write_text(json.dumps({
             "mode": "prompt", "seconds": secs, "language": lang, "font": fchoice,
             "music": "create" if mkmusic else "none", "voice": bool(voice_on), "voice_name": voice_name,
-            "background": bg, "stock": bg == "video", "look": theme, "music_keywords": mkw}), encoding="utf-8")
+            "background": bg, "stock": bg == "video", "look": theme, "music_keywords": mkw,
+            "owner": st.session_state.get("user_email")}), encoding="utf-8")
         st.session_state["flash"] = f"Sent '{dest.name}'. It starts in about 2 minutes."
         st.session_state["goto_tab"] = "My reels"
         st.rerun()
@@ -756,7 +761,8 @@ def reel_card(jd, first):
         kind, label = "amber", "Applying a change"
     with st.container(border=True):
         h1, h2 = st.columns([3, 1])
-        h1.markdown(f"**{jd.name}**")
+        _o = usage.owner_of(jd.name)
+        h1.markdown(f"**{jd.name}**" + (f"  ·  {_o}" if OWNER and _o else ""))
         h2.markdown(f'<div style="text-align:right">{pill(label, kind)}</div>', unsafe_allow_html=True)
         if status == "running" or revs.get("state") == "working":
             live_progress(jd.name)
@@ -814,6 +820,7 @@ def queued_folders():
     """Folders in Reels In that the worker has not started yet (it waits about 2 minutes after the last file arrives)."""
     done = {p.name for p in (WORK / "jobs").glob("*") if (p / "job.json").exists()}
     return sorted((p for p in REELS_IN.glob("*") if p.is_dir() and p.name not in done and not p.name.startswith("_")
+                   and usage.can_see(p.name, st.session_state.get("user_email"), OWNER)
                    and any(f.is_file() for f in p.rglob("*"))),  # an empty folder is not a reel
                   key=lambda p: p.stat().st_mtime, reverse=True)
 
@@ -836,7 +843,9 @@ def last_touched(jd):
 
 
 def reels_tab():
-    all_jobs = sorted((p for p in (WORK / "jobs").glob("*") if (p / "job.json").exists() and not p.name.startswith("_")),
+    me = st.session_state.get("user_email")
+    all_jobs = sorted((p for p in (WORK / "jobs").glob("*") if (p / "job.json").exists() and not p.name.startswith("_")
+                       and usage.can_see(p.name, me, OWNER)),
                       key=last_touched, reverse=True)
     cutoff = time.time() - HISTORY_DAYS * 86400
     jobs = [p for p in all_jobs if last_touched(p) >= cutoff or (p / "keep.flag").exists()
@@ -899,7 +908,7 @@ def check_claude_key(value):
 
 
 def key_card(title, blurb, entry, save_fn, key_prefix, sample=None, check=None):
-    saved = bool(keyring.get_password(SERVICE, entry))
+    saved = bool(vault.get_password(SERVICE, entry))
     msg_key, in_key = key_prefix + "_msg", key_prefix + "_in"
 
     def _save():  # runs before the page redraws, so the box can be cleared and the button greyed out afterwards
@@ -922,13 +931,13 @@ def key_card(title, blurb, entry, save_fn, key_prefix, sample=None, check=None):
         b.markdown(f'<div style="text-align:right">{pill("Connected", "green") if saved else pill("Not set", "gray")}</div>',
                    unsafe_allow_html=True)
         st.caption(blurb)
-        val = st.text_input("Key (stored in Windows Credential Manager, never shown again)", type="password", key=in_key,
+        val = st.text_input(f"Key (stored in {vault.WHERE}, never shown again)", type="password", key=in_key,
                             placeholder="Paste a new key here to replace the saved one" if saved else "Paste the key here")
         c1, c2 = st.columns(2)
         c1.button("Save key", key=key_prefix + "_save", type="primary", use_container_width=True, on_click=_save,
                   disabled=not (val or "").strip())
         if saved and c2.button("Remove key", key=key_prefix + "_del", use_container_width=True):
-            keyring.delete_password(SERVICE, entry)
+            vault.delete_password(SERVICE, entry)
             st.rerun()
         kind, text = st.session_state.pop(msg_key, (None, None))
         if kind == "ok":
@@ -1006,7 +1015,7 @@ def mail_section():
         host = c1.text_input("Mail server", value="smtp.gmail.com", key="mh")
         port = c2.text_input("Port", value="587", key="mp")
         user = st.text_input("Mailbox address", key="mu", placeholder="studio@example.com")
-        pwd = st.text_input("App password (kept in Windows Credential Manager)", type="password", key="mw")
+        pwd = st.text_input(f"App password (kept in {vault.WHERE})", type="password", key="mw")
         d1, d2, d3 = st.columns(3)
         if d1.button("Save", key="mail_save", type="primary", use_container_width=True):
             if host and port.isdigit() and user and pwd:
@@ -1080,13 +1089,66 @@ def kokoro_card():
             voice_sample_button(vp.KOKORO_DEFAULT, "ko_hear")
 
 
+def own_key_section():
+    me = st.session_state.get("user_email")
+    section("Your Claude key (optional)", "With your own key, your reels are paid by your own Claude account and do not count against the "
+            "studio's shared key or your allowance.")
+    key_card("Your Claude key", "Create one at console.anthropic.com. It is kept encrypted and only used for your reels.",
+             usage.own_entry(me), lambda v: vault.set_password(SERVICE, usage.own_entry(me), v.strip()), "own", check=check_claude_key)
+    s = usage.stats(me)
+    ok, why = usage.can_make_reels(me)
+    st.caption(f"This month: {s['reels_month']} reels, {s['shared_tokens']:,} tokens on the shared key, {s['own_tokens']:,} on your own key."
+               + ("" if ok else " " + why))
+
+
+def usage_section():
+    section("Usage and limits", "Who uses the shared Claude key, how much, and the limits. Anyone with their own key is not limited here.")
+    p = usage.policy()
+    with st.container(border=True):
+        a, b = st.columns(2)
+        a.toggle("Pause AI for everyone (emergency stop)", value=p["kill"], key="u_kill")
+        b.number_input("Studio budget on the shared key, tokens per month (0 = no limit)", min_value=0, step=100000,
+                       value=int(p["global_monthly_tokens"]), key="u_gl")
+        c, d = st.columns(2)
+        c.number_input("Price per million input tokens (optional, for cost estimates)", min_value=0.0, value=float(p["price_in_per_m"]), key="u_pin")
+        d.number_input("Price per million output tokens (optional)", min_value=0.0, value=float(p["price_out_per_m"]), key="u_pout")
+        tin, tout = usage.month_in_out()
+        est = usage.cost_estimate(tin, tout)
+        st.caption(f"Shared key this month: {tin + tout:,} tokens ({tin:,} in, {tout:,} out)" + (f", about {est:,.2f} in your price currency." if est is not None else ". Enter prices above to see a cost estimate."))
+        st.markdown("**People** (the owner is never limited)")
+        users = {e: r for e, r in auth.list_users().items() if r != "owner"}
+        if not users:
+            st.caption("No members yet. Add one under People.")
+        for email in users:
+            up = usage.user_policy(email)
+            s = usage.stats(email)
+            x1, x2, x3, x4 = st.columns([3, 2, 2, 2])
+            x1.markdown(f"{email}  \n<span style='opacity:.7;font-size:.85rem'>{s['reels_month']} reels, {s['shared_tokens']:,} shared tokens, "
+                        f"{s['own_tokens']:,} own-key tokens{' · own key' if usage.has_own_key(email) else ''}</span>", unsafe_allow_html=True)
+            x2.checkbox("Can use the shared key", value=bool(up["shared_key"]), key=f"u_sh_{email}")
+            x3.number_input("Tokens per month", min_value=0, step=50000, value=int(up["monthly_tokens"]), key=f"u_mt_{email}", help="0 = no limit")
+            x4.number_input("Reels per day", min_value=0, step=1, value=int(up["daily_reels"]), key=f"u_dr_{email}", help="0 = no limit")
+        if st.button("Save limits", type="primary", key="u_save"):
+            q = usage.policy()
+            q.update(kill=bool(st.session_state.get("u_kill")), global_monthly_tokens=int(st.session_state.get("u_gl") or 0),
+                     price_in_per_m=float(st.session_state.get("u_pin") or 0), price_out_per_m=float(st.session_state.get("u_pout") or 0))
+            for email in users:
+                q["users"][usage.norm(email)] = {"shared_key": bool(st.session_state.get(f"u_sh_{email}")),
+                                                  "monthly_tokens": int(st.session_state.get(f"u_mt_{email}") or 0),
+                                                  "daily_reels": int(st.session_state.get(f"u_dr_{email}") or 0)}
+            usage.save_policy(q)
+            st.success("Limits saved.")
+
+
 def settings_tab():
     import stock_provider
     import voice_provider
     account_section()
     if not OWNER:
+        own_key_section()
         return
     people_section()
+    usage_section()
     mail_section()
     section("Connections", "Optional add-ons. The app works fully without them.")
     kokoro_card()
@@ -1097,7 +1159,7 @@ def settings_tab():
              "carry a credit line in the Instagram pack.", stock_provider.ENTRY, stock_provider.save_key, "px")
     key_card("Claude (writing and planning)", "Required for every reel: it looks at your pictures, plans the story and writes the "
              "captions. Get a key at console.anthropic.com.", "anthropic",
-             lambda v: keyring.set_password(SERVICE, "anthropic", v.strip()), "cl", check=check_claude_key)
+             lambda v: vault.set_password(SERVICE, "anthropic", v.strip()), "cl", check=check_claude_key)
     section("System")
     with st.container(border=True):
         ok, detail = worker_state()

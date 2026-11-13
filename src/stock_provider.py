@@ -7,7 +7,7 @@ import urllib.parse
 import urllib.request
 from pathlib import Path
 
-import keyring
+import secrets_store as vault
 
 from common import FFPROBE
 
@@ -18,13 +18,13 @@ CREDIT = "Video footage: Pexels (pexels.com)"
 
 def available():
     try:
-        return bool(keyring.get_password(SERVICE, ENTRY))
+        return bool(vault.get_password(SERVICE, ENTRY))
     except Exception:
         return False
 
 
 def save_key(value):
-    keyring.set_password(SERVICE, ENTRY, value.strip())
+    vault.set_password(SERVICE, ENTRY, value.strip())
 
 
 def _get(url, key):
@@ -35,7 +35,7 @@ def _get(url, key):
 
 def fetch_clip(query, dest_dir, min_seconds=3.0, used=()):
     """Downloads one portrait clip for the query. Returns (path, width, height, duration, page_url) or None."""
-    key = keyring.get_password(SERVICE, ENTRY)
+    key = vault.get_password(SERVICE, ENTRY)
     if not key or not query:
         return None
     dest_dir = Path(dest_dir)

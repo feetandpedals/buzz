@@ -16,6 +16,8 @@ Buzz turns a stack of photos and videos, or just a written idea, into a ready-to
 
 ## What it does
 
+- **Runs anywhere.** Windows PC, Linux PC or a Linux server, with the same features. Several people can use one server.
+- **Your reels, your key.** Everyone sees only their own reels and can use their own Claude key. The owner sets limits on the shared key and has an emergency pause switch.
 - **Two ways to start.** Upload photos and videos (with your own song, music made for you, or silent), or type an idea and get a finished reel from the words alone.
 - **Smart editing.** The AI studies your pictures and clips, plans a story, cuts on the beat, keeps text clear of faces, and lets you choose the opening and closing shot.
 - **Instagram pack.** Hook, caption, 5 hashtags, cover text, best time to post and alt text for every reel.
@@ -67,6 +69,19 @@ Buzz offers two voices, and you can pick either on the Create page once it is se
 - **A mailbox you own** (for example Gmail with an app password): emails password-reset codes. Without it, the owner makes the code in Settings.
 - **Remote access** from your own phone or laptop: install Tailscale and run `tailscale serve --bg 8501`. Do not use Funnel; it would make the page public.
 
+## Linux and servers
+
+```
+./install_linux.sh            # Python 3.12, FFmpeg, environment, face detector; no root needed
+./deploy/install-services.sh  # worker and web page as systemd user services with CPU and memory caps
+```
+
+Then put nginx in front (a ready file is in `deploy/`), open the site, create the owner account and add your Claude key in Settings. Keys are kept encrypted outside the project folder. The full guide, with sizing, secrets, updates and troubleshooting, is `docs/SERVER.md`.
+
+## People, keys and limits
+
+Several people can sign in. Everyone sees only their own reels (the owner sees all) and can add their own Claude key. The owner can allow the shared key per person, set monthly token and daily reel limits and a studio budget, and pause all AI use with one switch.
+
 ## Privacy and where things are kept
 
 Buzz runs on a machine you control. Nothing is uploaded except to the services you choose to add (Claude for planning and writing, and optionally Google voice and Pexels).
@@ -77,7 +92,7 @@ Buzz runs on a machine you control. Nothing is uploaded except to the services y
 
 ## Platform
 
-Windows today, Linux and server support planned.
+Buzz runs on **Windows 10/11** and on **Linux** (Ubuntu 22.04 and 24.04 tested), on a PC or on a server. See `docs/SERVER.md` for running it on a server for several people.
 
 ## Powered by Claude, free to change
 
@@ -89,7 +104,7 @@ Download the new zip and run `Install Buzz.bat`. Choose the same folder as befor
 
 ## What is in the box
 
-- `src\` the application (26 Python files, about 4,469 lines).
+- `src\` the application (30 Python files, about 5,084 lines).
 - `CHANGELOG.md` and `Buzz_Changelog_Report.pdf` the history.
 - `requirements.txt` exact versions used and tested; `requirements-cv4.txt` the second OpenCV for faces.
 

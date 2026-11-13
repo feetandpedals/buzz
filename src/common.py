@@ -2,6 +2,7 @@
 import glob
 import os
 import shutil
+import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -17,6 +18,14 @@ IMAGE_EXT = {".jpg", ".jpeg", ".png", ".heic", ".webp", ".bmp", ".tif", ".tiff"}
 AUDIO_EXT = {".mp3", ".wav", ".m4a", ".aac", ".flac", ".ogg"}
 
 
+def font_path(windows_file, bundled_file):
+    """The Windows system font when running on Windows, otherwise a free font shipped in fonts/."""
+    w = Path("C:/Windows/Fonts") / windows_file
+    if sys.platform == "win32" and w.exists():
+        return w
+    return ROOT / "fonts" / bundled_file
+
+
 def find_tool(name):
     p = shutil.which(name)
     if p:
@@ -25,6 +34,9 @@ def find_tool(name):
     hits = glob.glob(str(base / "Gyan.FFmpeg*" / "*" / "bin" / f"{name}.exe"))
     if hits:
         return hits[0]
+    for d in (ROOT / "bin", Path.home() / ".local" / "bin", Path("/usr/local/bin"), Path("/opt/ffmpeg/bin")):  # Linux / server installs
+        if (d / name).exists():
+            return str(d / name)
     raise FileNotFoundError(f"{name} not found")
 
 

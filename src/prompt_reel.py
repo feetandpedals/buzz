@@ -11,7 +11,7 @@ from PIL import Image, ImageDraw, ImageFilter, ImageFont
 import ai_plan
 import music as music_mod
 import progress
-from common import ROOT
+from common import ROOT, font_path
 
 W, H = 1080, 1920
 
@@ -53,9 +53,9 @@ Use only facts from the idea or common knowledge. Never invent statistics, names
 
 def _font(options, size):
     from render import FONTS
-    f = FONTS.get(options.get("font") or "auto", FONTS["auto"])[1] or Path("C:/Windows/Fonts/georgiab.ttf")
+    f = FONTS.get(options.get("font") or "auto", FONTS["auto"])[1] or font_path("georgiab.ttf", "PT_Serif-Web-Bold.ttf")
     if not Path(f).exists():
-        f = Path("C:/Windows/Fonts/palab.ttf")
+        f = font_path("palab.ttf", "Cardo-Bold.ttf")
     return ImageFont.truetype(str(f), size)
 
 

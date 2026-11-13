@@ -63,6 +63,8 @@ def _revise_prompt(name, note, job):
 def revise(name, note):
     job, cat_file, ana_file, plan_file = _job_files(name)
     try:
+        import usage
+        usage.set_context(usage.owner_of(name), name)
         progress.start(job)
         progress.report(4, "Understanding your change", 14)
         if plan_file.exists() and json.loads(plan_file.read_text(encoding="utf-8")).get("prompt_mode"):

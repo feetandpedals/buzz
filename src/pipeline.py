@@ -11,6 +11,7 @@ import ingest
 import music
 import progress
 import render
+import usage
 from common import FFMPEG, REELS_OUT, WORK
 
 
@@ -57,6 +58,11 @@ def run_job(folder):
     try:
         progress.start(job)
         _save(job, status="running", stage="catalogue", folder=str(folder))
+        owner = read_options(folder).get("owner", "")
+        usage.record_owner(name, owner)
+        usage.set_context(owner, name)
+        usage.check_reel_start(owner)  # key available, not paused, within the daily reel limit
+        usage.record_reel_start(owner, name)
         cat_file = job / "catalogue.json"
         if cat_file.exists():
             blob = json.loads(cat_file.read_text(encoding="utf-8"))

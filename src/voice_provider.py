@@ -5,12 +5,14 @@ Without either, the app works as before, just without a voiceover. To use anothe
 import base64
 import hashlib
 import json
+import os
 import subprocess
+import sys
 import urllib.error
 import urllib.request
 from pathlib import Path
 
-import keyring
+import secrets_store as vault
 
 from common import FFMPEG, FFPROBE
 
@@ -27,7 +29,6 @@ KOKORO_VOICES = {
     "kokoro:bm_george": "Free voice: UK, man",
 }
 KOKORO_DEFAULT = "kokoro:af_heart"
-_kokoro = None
 SERVICE, ENTRY = "ai-reel-studio", "google_tts"
 
 # label -> Google voice name (English only)
@@ -46,7 +47,7 @@ DEFAULT_VOICE = "en-IN-Neural2-A"
 
 def google_ready():
     try:
-        return bool(keyring.get_password(SERVICE, ENTRY))
+        return bool(vault.get_password(SERVICE, ENTRY))
     except Exception:
         return False
 
@@ -92,33 +93,70 @@ def install_kokoro():
     return kokoro_ready()
 
 
+_helper = None
+_NO_WINDOW = 0x08000000 if sys.platform == "win32" else 0
+HELPER_TIMEOUT = 600  # seconds for one line, including loading the model the first time
+
+
+def _start_helper():
+    global _helper
+    if _helper is None or _helper.poll() is not None:
+        _helper = subprocess.Popen([sys.executable, str(Path(__file__).with_name("voice_worker.py"))], stdin=subprocess.PIPE,
+                                   stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True, encoding="utf-8", bufsize=1,
+                                   creationflags=_NO_WINDOW)
+    return _helper
+
+
+def release():
+    """Ends the voice helper process after a reel. The free voice lives in its own process, so ALL of its memory
+    (about 1 GB) returns to the system instead of staying with a long-running worker."""
+    global _helper
+    h, _helper = _helper, None
+    if h is None:
+        return
+    try:
+        h.stdin.close()
+        h.wait(timeout=15)
+    except Exception:
+        h.kill()
+
+
 def _synth_kokoro(text, out_mp3, voice, rate=1.0):
-    global _kokoro
-    import soundfile as sf
-    if _kokoro is None:
-        from kokoro_onnx import Kokoro
-        _kokoro = Kokoro(str(MODELS / "kokoro-v1.0.onnx"), str(MODELS / "voices-v1.0.bin"))
-    name = voice.split(":", 1)[1]
-    samples, sr = _kokoro.create(text, voice=name, speed=rate, lang="en-gb" if name.startswith("b") else "en-us")
-    wav = Path(out_mp3).with_suffix(".wav")
-    sf.write(str(wav), samples, sr)
-    r = subprocess.run([FFMPEG, "-v", "error", "-y", "-i", str(wav), "-codec:a", "libmp3lame", "-q:a", "3", str(out_mp3)],
-                       capture_output=True, text=True)
-    wav.unlink(missing_ok=True)
-    if r.returncode:
-        raise RuntimeError("Could not save the free voice: " + r.stderr[-200:])
-    return Path(out_mp3)
+    import queue
+    import threading
+    for attempt in (1, 2):  # one automatic restart if the helper died
+        h = _start_helper()
+        try:
+            h.stdin.write(json.dumps({"text": text, "voice": voice, "rate": rate, "out": str(out_mp3)}) + "\n")
+            h.stdin.flush()
+            q = queue.Queue()
+            threading.Thread(target=lambda: q.put(h.stdout.readline()), daemon=True).start()
+            line = q.get(timeout=HELPER_TIMEOUT)
+            if not line:
+                raise BrokenPipeError("voice helper ended")
+            ans = json.loads(line)
+        except (BrokenPipeError, OSError, queue.Empty, ValueError):
+            try:
+                h.kill()
+            except Exception:
+                pass
+            if attempt == 2:
+                raise RuntimeError("The free voice stopped unexpectedly. Please try again.")
+            continue
+        if not ans.get("ok"):
+            raise RuntimeError(ans.get("error") or "The free voice could not speak this line.")
+        return Path(out_mp3)
 
 
 def save_key(value):
-    keyring.set_password(SERVICE, ENTRY, value.strip())
+    vault.set_password(SERVICE, ENTRY, value.strip())
 
 
 def synth(text, out_mp3, voice=DEFAULT_VOICE, rate=1.0):
     """One line of text -> mp3 file. Raises with a plain message if the service refuses."""
     if voice.startswith("kokoro:") or (not google_ready() and kokoro_ready()):
         return _synth_kokoro(text, out_mp3, voice if voice.startswith("kokoro:") else KOKORO_DEFAULT, rate)
-    key = keyring.get_password(SERVICE, ENTRY)
+    key = vault.get_password(SERVICE, ENTRY)
     if not key:
         raise RuntimeError("No Google voice key saved.")
     body = json.dumps({"input": {"text": text}, "voice": {"languageCode": voice[:5], "name": voice},

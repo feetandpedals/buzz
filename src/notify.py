@@ -3,17 +3,17 @@ Messages carry only the reel's folder name and a status, never file paths or med
 import secrets
 import urllib.request
 
-import keyring
+import secrets_store as vault
 
 SERVICE = "ai-reel-studio"
 SERVER = "https://ntfy.sh"
 
 
 def topic(create=False):
-    t = keyring.get_password(SERVICE, "ntfy_topic")
+    t = vault.get_password(SERVICE, "ntfy_topic")
     if not t and create:
         t = "reel-studio-" + secrets.token_urlsafe(9).replace("_", "x").replace("-", "y").lower()
-        keyring.set_password(SERVICE, "ntfy_topic", t)
+        vault.set_password(SERVICE, "ntfy_topic", t)
     return t
 
 
