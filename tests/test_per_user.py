@@ -146,11 +146,11 @@ try:
 
     # ---- the pages
     from streamlit.testing.v1 import AppTest
-    def page(tab, email, role):
+    def page(tab, email, role, group="Connections"):
         pre = ('st.session_state.setdefault("signed_in", True); st.session_state.setdefault("user_email", "%s"); '
-               'st.session_state.setdefault("user_role", "%s"); st.session_state.setdefault("tab_cur", "%s")\n' % (email, role, tab))
+               'st.session_state.setdefault("user_role", "%s"); st.session_state.setdefault("tab_cur", "%s"); '
+               'st.session_state.setdefault("set_group", "%s")\n' % (email, role, tab, group))
         s = (root / "src" / "app.py").read_text(encoding="utf-8").replace("st.set_page_config(", pre + "st.set_page_config(", 1)
-        s = s.replace("        return ui.tabs(options, value=value, key=key)", "        raise RuntimeError('fallback')")
         f = root / "src" / "_pu_test.py"; f.write_text(s, encoding="utf-8")
         at = AppTest.from_file(str(f), default_timeout=90); at.run()
         return at, f
@@ -165,7 +165,7 @@ try:
     at, f = page("Settings", "bob@x.com", "member")
     t = text(at)
     check("member Settings has own-key card, no people or shared controls", "Your Claude key" in t and "Reel limits" not in t and "People" not in t and not at.exception)
-    at, f = page("Settings", "boss@x.com", "owner")
+    at, f = page("Settings", "boss@x.com", "owner", "Reel limit")
     t = text(at)
     check("owner Settings shows the one-line reel limit", "Reel limit" in t and "Each person can make" in t and not at.exception)
     check("the limit is two boxes only, no per-person rows", sorted(n.key for n in at.number_input if n.key.startswith("u_")) == ["u_d_dr", "u_d_wr"])

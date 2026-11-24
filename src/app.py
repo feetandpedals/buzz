@@ -1,5 +1,6 @@
 """Buzz web page. The background worker does the real work and never depends on this page."""
 import hmac
+import html
 import json
 import re
 import subprocess
@@ -10,13 +11,12 @@ from pathlib import Path
 import secrets_store as vault
 import usage
 import streamlit as st
-import streamlit_shadcn_ui as ui  # MIT licensed shadcn components for Streamlit
 
 ROOT = Path(__file__).resolve().parent.parent
 WORK, REELS_IN, REELS_OUT = ROOT / "Work", ROOT / "Reels In", ROOT / "Reels Out"
 from common import font_path  # noqa: E402
 TASK = "Buzz Worker"
-SERVICE = "ai-reel-studio"
+SERVICE = "ai-reel-studio"  # key-store name from before the rebrand: keep it, saved keys live under it
 try:  # the address of this page on your own devices (Tailscale); kept in a small file, not in the code
     PUBLIC_URL = (WORK / "public_url.txt").read_text(encoding="utf-8").strip()
 except OSError:
@@ -27,60 +27,99 @@ except Exception:
     HISTORY_DAYS = 15
 AUDIO = {".mp3", ".wav", ".m4a", ".aac", ".flac", ".ogg"}
 
-st.set_page_config(page_title="Buzz: AI Reel Studio", page_icon="🎬", layout="centered")
+st.set_page_config(page_title="Buzz", page_icon=str(ROOT / "assets" / "buzz-mark.png"), layout="centered")
+TAGLINE = "Reels from photos, clips or just an idea."
+# The Buzz mark: a honeycomb cell holding a play button. Same drawing as src/static/buzz-mark.svg.
+MARK = ('<svg viewBox="0 0 64 64" width="{s}" height="{s}" aria-hidden="true"><path d="M32 6 54.5 19v26L32 58 9.5 45V19Z" '
+        'fill="#F5A524" stroke="#F5A524" stroke-width="7" stroke-linejoin="round"/><path d="M26.5 22.5 43 32 26.5 41.5Z" '
+        'fill="#17151F" stroke="#17151F" stroke-width="4" stroke-linejoin="round"/></svg>')
 
 
 def footer():
-    st.markdown('<div style="text-align:center;opacity:.65;font-size:.82rem;margin:2.5rem 0 1rem">Built by Amit at '
+    st.markdown('<div class="bz-foot">Built by Amit at '
                 '<a href="https://nobrand.in" target="_blank" rel="noopener">https://nobrand.in</a> - collaborator '
                 '<a href="https://feetandpedals.com" target="_blank" rel="noopener">feetandpedals.com</a></div>', unsafe_allow_html=True)
 
 
 CSS = """
 <style>
+/* Buzz brand. Honey is the one brand colour; ink on white with violet-tinted greys; green, amber and red mean status only.
+   Fonts and the base colours come from .streamlit/config.toml; this adds the pieces Streamlit has no setting for. */
+:root {--bz-ink:#17151F; --bz-honey:#F5A524; --bz-honey-soft:#FFF3DC; --bz-honey-text:#8A5300; --bz-mist:#F6F5F8;
+  --bz-line:#E6E4EC; --bz-muted:#6B6779; --bz-ok-bg:#DDF5E6; --bz-ok:#17663A; --bz-warn-bg:#FFF0CC; --bz-warn:#7A4B00;
+  --bz-bad-bg:#FDE3E3; --bz-bad:#9B1C1C; --bz-display:"Bricolage Grotesque", Inter, "Segoe UI", system-ui, sans-serif;}
+@media (prefers-color-scheme: dark) {:root {--bz-honey-soft:#3A2A0C; --bz-honey-text:#F7B84B; --bz-mist:#1C1A25;
+  --bz-line:#2E2B3A; --bz-muted:#A6A2B4; --bz-ok-bg:#12321F; --bz-ok:#7EE2A8; --bz-warn-bg:#3A2A0C; --bz-warn:#F7C873;
+  --bz-bad-bg:#3B1418; --bz-bad:#F9A8A8;}}
 header[data-testid="stHeader"], #MainMenu, footer {display:none !important;}
-.block-container {max-width: 940px; padding: 1.1rem 1rem 4rem 1rem;}
-.rs-hero {background: linear-gradient(135deg,#18181b 0%,#27272a 55%,#7c2d12 130%); color:#fff; border-radius:18px;
-  padding:20px 24px; display:flex; justify-content:space-between; align-items:center; gap:16px; flex-wrap:wrap;
-  margin-bottom:14px;}
-.rs-hero h1 {margin:0; font-size:1.7rem; font-weight:800; letter-spacing:-0.02em; color:#fff; padding:0;}
-.rs-hero p {margin:4px 0 0 0; color:#d4d4d8; font-size:.95rem;}
-.rs-pill {display:inline-flex; align-items:center; gap:6px; border-radius:999px; padding:4px 12px; font-size:.82rem;
-  font-weight:600; white-space:nowrap;}
-.rs-green {background:#dcfce7; color:#166534;} .rs-red {background:#fee2e2; color:#991b1b;}
-.rs-amber {background:#fef3c7; color:#92400e;} .rs-gray {background:#f4f4f5; color:#3f3f46;}
-.rs-steps {display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin:10px 0 14px 0;}
-.rs-step {border:1px solid #e4e4e7; border-radius:14px; padding:12px 14px; background:#fafafa;}
-.rs-step b {display:block; font-size:.95rem; margin-bottom:2px;}
-.rs-step span {color:#52525b; font-size:.85rem;}
-.rs-step .rs-num {display:inline-flex; width:22px; height:22px; border-radius:50%; background:#18181b;
-  color:#fff !important; align-items:center; justify-content:center; font-size:.75rem; margin-right:8px;}
-@media (prefers-color-scheme: dark) {.rs-step .rs-num {background:#fafafa; color:#18181b !important;}}
-.rs-stats {display:flex; gap:10px; margin:6px 0 12px 0;}
-.rs-stat {flex:1; border:1px solid #e4e4e7; border-radius:14px; padding:10px 14px; background:#fafafa;}
-.rs-stat span {display:block; color:#71717a; font-size:.8rem;} .rs-stat b {font-size:1.35rem;}
+.block-container, [data-testid="stMainBlockContainer"] {max-width: 940px; padding: 1rem 1rem 4rem 1rem !important;}
+/* tabs and choice rows: the selected one is honey with dark text, so it reads clearly */
+[data-testid="stButtonGroup"] button[aria-checked="true"] {background:var(--bz-honey-soft) !important;
+  border-color:var(--bz-honey) !important; color:var(--bz-honey-text) !important;}
+[data-testid="stButtonGroup"] button[aria-checked="true"] p {color:var(--bz-honey-text) !important; font-weight:700;}
+[role="tab"][aria-selected="true"], [role="tab"][aria-selected="true"] p {color:inherit !important; font-weight:700;}
+[role="tab"][aria-selected="true"] {color:var(--bz-ink-text, currentColor) !important;}
+[data-baseweb="tab-highlight"] {background-color:var(--bz-honey) !important;}
+/* top bar */
+.st-key-bz_bar {border-bottom:1px solid var(--bz-line); padding-bottom:.55rem; margin-bottom:.2rem;}
+.bz-brand {display:flex; align-items:center; gap:10px; font-family:var(--bz-display); font-weight:800; font-size:1.45rem;
+  letter-spacing:-0.02em; line-height:1;}
+.bz-who {color:var(--bz-muted); font-size:.82rem; white-space:nowrap;}
+/* status pills */
+.rs-pill {display:inline-flex; align-items:center; gap:6px; border-radius:999px; padding:2px 10px; font-size:.78rem;
+  font-weight:600; white-space:nowrap; line-height:1.6;}
+.rs-pill.dot::before {content:""; width:6px; height:6px; border-radius:50%; background:currentColor;}
+.rs-green {background:var(--bz-ok-bg); color:var(--bz-ok);} .rs-red {background:var(--bz-bad-bg); color:var(--bz-bad);}
+.rs-amber {background:var(--bz-warn-bg); color:var(--bz-warn);}
+.rs-gray {background:var(--bz-mist); color:var(--bz-muted); border:1px solid var(--bz-line);}
+/* page heading and the three steps */
+.bz-ph h2 {font-family:var(--bz-display); font-size:1.6rem; font-weight:800; letter-spacing:-0.02em; margin:0; padding:0;}
+.bz-ph p {color:var(--bz-muted); margin:0;}
+.rs-steps {display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin:2px 0 6px 0;}
+.rs-step {display:flex; gap:10px; align-items:flex-start; border-radius:12px; padding:10px 12px; background:var(--bz-mist);}
+.rs-step b {display:block; font-size:.92rem;} .rs-step span {color:var(--bz-muted); font-size:.8rem; line-height:1.35; display:block;}
+.rs-num {flex:none; display:inline-flex !important; align-items:center; justify-content:center; width:22px; height:22px; border-radius:7px; background:var(--bz-honey);
+  color:#17151F !important; font-size:.72rem; font-weight:800;}
+.rs-sec {display:flex; align-items:center; gap:8px; font-family:var(--bz-display); font-weight:700; font-size:1.08rem;
+  letter-spacing:-0.01em; margin:2px 0 4px 0;}
+.rs-sec .rs-num {width:20px; height:20px; font-size:.7rem; border-radius:6px;}
+.rs-muted {color:var(--bz-muted); font-size:.85rem;}
+/* My reels */
+.rs-stats {display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin:4px 0 10px 0;}
+.rs-stat {border:1px solid var(--bz-line); border-radius:12px; padding:8px 14px;}
+.rs-stat span {display:block; color:var(--bz-muted); font-size:.78rem;}
+.rs-stat b {font-family:var(--bz-display); font-size:1.45rem; font-variant-numeric:tabular-nums;}
+.bz-stages {display:grid; grid-template-columns:repeat(4,1fr); gap:6px; list-style:none; margin:2px 0 1rem 0 !important; padding:0;}
+.bz-stages li {font-size:.78rem; color:var(--bz-muted); display:flex; gap:6px; align-items:center; line-height:1.25; margin:0;}
+.bz-stages li::before {content:""; flex:none; width:14px; height:14px; border-radius:50%; border:1.5px solid var(--bz-line);}
+.bz-stages li.done {color:inherit;} .bz-stages li.done::before {background:currentColor; border-color:currentColor;
+  box-shadow:inset 0 0 0 3px var(--bz-mist);}
+.bz-stages li.now {color:inherit; font-weight:700;} .bz-stages li.now::before {background:var(--bz-honey); border-color:var(--bz-honey);}
+div[data-testid="stProgress"] p {font-variant-numeric:tabular-nums;}
 video {max-height:560px; background:#000; border-radius:12px;}
-@media (prefers-color-scheme: dark) {.rs-stat {background:#1f1f23; border-color:#3f3f46;}}
-.rs-sec {font-weight:700; font-size:1.02rem; margin:2px 0 6px 0;}
-.rs-muted {color:#71717a; font-size:.85rem;}
-div[data-testid="stVerticalBlockBorderWrapper"] {border-radius:16px;}
-.stButton > button[kind="primary"] {border-radius:10px; font-weight:700; padding:.55rem 1.4rem;}
-.stButton > button {border-radius:10px;}
+div[data-testid="stCode"] code {color:var(--bz-honey-text);}
+/* containers, buttons: text on honey is always ink */
+div[data-testid="stVerticalBlockBorderWrapper"] {border-radius:14px;}
+button[kind="primary"], button[kind="primaryFormSubmit"], [data-testid="stBaseButton-primary"],
+[data-testid="stBaseButton-primaryFormSubmit"] {color:#17151F !important; font-weight:700 !important;}
+button[kind="primary"] p, button[kind="primaryFormSubmit"] p {color:#17151F !important;}
+/* sign-in */
+.rs-login {max-width:480px; margin:6vh auto 0 auto; text-align:center; display:grid; justify-items:center; gap:4px;}
+.rs-login h2 {font-family:var(--bz-display); margin:.5rem 0 0 0; padding:0; font-size:1.75rem; font-weight:800; letter-spacing:-0.02em;}
+.rs-login p {color:var(--bz-muted); margin:0 0 1rem 0;}
+.bz-foot {text-align:center; color:var(--bz-muted); font-size:.8rem; margin:2.5rem 0 1rem;}
+.bz-foot a {color:inherit;}
 @media (max-width: 640px) {
-  .rs-steps {grid-template-columns:1fr;} .rs-hero {padding:16px;} .rs-hero h1 {font-size:1.35rem;}
-  .block-container {padding: .6rem .6rem 4rem .6rem;}
-}
-@media (prefers-color-scheme: dark) {
-  .rs-step {background:#1f1f23; border-color:#3f3f46;} .rs-step span {color:#a1a1aa;}
-  .rs-gray {background:#27272a; color:#e4e4e7;}
+  .rs-steps {display:none;} .bz-stages {grid-template-columns:1fr 1fr;} .bz-who {display:none;}
+  .block-container {padding: .6rem 1rem 4rem 1rem;} .bz-brand {font-size:1.25rem;}
 }
 </style>
 """
 st.markdown(CSS, unsafe_allow_html=True)
 
 
-def pill(text, kind="gray"):
-    return f'<span class="rs-pill rs-{kind}">{text}</span>'
+def pill(text, kind="gray", dot=False):
+    return f'<span class="rs-pill rs-{kind}{" dot" if dot else ""}">{text}</span>'
 
 
 # ---- sign-in: email and password accounts, first-time setup, forgot password (src/auth.py) ----
@@ -110,13 +149,7 @@ def _auth_css(hello, line):
 
 
 def _auth_head(hello, line):
-    st.markdown(
-        '<style>.rs-login{max-width:480px;margin:6vh auto 0 auto;text-align:center;}'
-        '.rs-login .logo{font-size:3rem;line-height:1;} .rs-login h2{margin:.6rem 0 .2rem 0;font-size:1.7rem;'
-        'font-weight:800;letter-spacing:-0.02em;} .rs-login p{color:#71717a;margin:0 0 1.2rem 0;}'
-        '.rs-login-foot{text-align:center;color:#a1a1aa;font-size:.82rem;margin-top:1rem;}</style>'
-        f'<div class="rs-login"><div class="logo">🎬</div><h2>{hello}</h2><p>{line}</p></div>',
-        unsafe_allow_html=True)
+    st.markdown(f'<div class="rs-login">{MARK.format(s=56)}<h2>{hello}</h2><p>{line}</p></div>', unsafe_allow_html=True)
 
 
 COOKIE = "rs_session"
@@ -146,12 +179,12 @@ def _auth_screen():
     _l, mid, _r = st.columns([1, 3, 1])
 
     if view == "setup":
-        _auth_css("Welcome! 🎉", "Let's set up your reel studio. Create the owner account to begin.")
+        _auth_css("Welcome to Buzz", "Create the owner account to begin. " + TAGLINE)
         with mid, st.form("setup", border=True):
             email = st.text_input("Your email", placeholder="you@example.com")
             pw = st.text_input("Choose a password", type="password", placeholder="At least 8 characters")
             pw2 = st.text_input("Type it again", type="password")
-            if st.form_submit_button("Create my studio", type="primary", use_container_width=True):
+            if st.form_submit_button("Create my account", type="primary", use_container_width=True):
                 if pw != pw2:
                     st.error("The two passwords are not the same.")
                 else:
@@ -162,7 +195,7 @@ def _auth_screen():
                         _enter(auth.norm(email), "owner")
 
     elif view == "signin":
-        _auth_css(f"{hello}! 👋", "Welcome back. Sign in to open your reel studio.")
+        _auth_css(hello, "Sign in to Buzz.")
         with mid:
             if st.session_state.pop("pw_changed", False):
                 st.success("Your password is changed. Please sign in.")
@@ -189,7 +222,7 @@ def _auth_screen():
                 st.rerun()
 
     elif view == "forgot":
-        _auth_css("No problem 🙂", "Tell us your email and we will help you choose a new password.")
+        _auth_css("Forgot your password?", "Tell us your email and we will help you choose a new password.")
         with mid:
             with st.form("forgot", border=True):
                 email = st.text_input("Your email", placeholder="you@example.com")
@@ -215,9 +248,9 @@ def _auth_screen():
                 st.rerun()
 
     else:  # reset
-        _auth_css("Check for your code ✉️", "Enter the 6-digit code, then pick a new password.")
+        _auth_css("Check your email", "Enter the 6-digit code, then pick a new password.")
         with mid:
-            st.info("If that email has an account, a code is on its way. No email? Ask the studio owner for a code: "
+            st.info("If that email has an account, a code is on its way. No email? Ask the person who runs Buzz for a code: "
                     "they can make one for you in Settings.")
             with st.form("reset", border=True):
                 email = st.text_input("Your email", value=st.session_state.get("reset_email", ""))
@@ -275,28 +308,26 @@ def stop_worker():
     service_ctl.stop_worker(TASK, WORK / "worker.lock")
 
 
-# ---- header ----
+# ---- top bar: the Buzz mark and name, worker status, who is signed in ----
 ok, detail = worker_state()
-st.markdown(
-    '<div class="rs-hero"><div><h1>🎬 Buzz</h1>'
-    '<p><b>AI Reel Studio.</b> Photos, clips or just an idea in. An Instagram-ready reel out, with caption and hashtags.</p></div>'
-    f'<div>{pill("● Worker running", "green") if ok else pill("● Worker stopped", "red")}</div></div>',
-    unsafe_allow_html=True)
+with st.container(horizontal=True, vertical_alignment="center", key="bz_bar", gap="small"):
+    st.markdown(f'<div class="bz-brand">{MARK.format(s=28)}Buzz</div>', unsafe_allow_html=True, width="content")
+    st.space("stretch")
+    st.markdown(pill("Worker running", "green", dot=True) if ok else pill("Worker stopped", "red", dot=True),
+                unsafe_allow_html=True, width="content")
+    st.html(f'<span class="bz-who">{html.escape(st.session_state.get("user_email") or "")}</span>', width="content")
+    if st.button("Sign out", key="signout", type="tertiary"):
+        auth.end_session(st.session_state.get("session_token"))
+        for _k in ("signed_in", "user_email", "user_role", "session_token"):
+            st.session_state.pop(_k, None)
+        st.session_state["clear_cookie"] = True
+        st.rerun()
 if not ok:
     c1, c2 = st.columns([3, 1])
     c1.warning("The background worker is stopped, so new reels will not start.")
     if c2.button("Start worker", type="primary", use_container_width=True):
         start_worker()
         st.toast("Start requested. Refresh in a few seconds.")
-
-who1, who2 = st.columns([5, 1])
-who1.caption(f"Signed in as {st.session_state.get('user_email')}")
-if who2.button("Sign out", key="signout", use_container_width=True):
-    auth.end_session(st.session_state.get("session_token"))
-    for _k in ("signed_in", "user_email", "user_role", "session_token"):
-        st.session_state.pop(_k, None)
-    st.session_state["clear_cookie"] = True
-    st.rerun()
 
 
 if OWNER and not vault.get_password(SERVICE, "anthropic"):
@@ -308,12 +339,8 @@ elif not OWNER:
 
 
 def nav_tabs(options, value, key):
-    """shadcn tabs; if that component cannot load for any reason, plain buttons keep the page usable."""
-    try:
-        return ui.tabs(options, value=value, key=key)
-    except Exception:
-        return st.radio("Go to", options, index=options.index(value), horizontal=True, key=key + "_fb",
-                        label_visibility="collapsed")
+    """A row of tabs drawn by Streamlit itself, so it takes the Buzz colours. One is always selected."""
+    return st.segmented_control("Go to", options, default=value, required=True, key=key, label_visibility="collapsed")
 
 
 # After a reel is sent, the page moves itself to My reels: a new tab key makes the tab bar start on the wanted tab.
@@ -361,7 +388,10 @@ def font_picker(prefix):
 
 
 def section(title, hint=None):
-    st.markdown(f'<div class="rs-sec">{title}</div>' + (f'<div class="rs-muted">{hint}</div>' if hint else ""),
+    """A section heading. A leading "1. " becomes a honey number badge."""
+    m = re.match(r"(\d+)\.\s+(.*)", title)
+    head = f'<span class="rs-num">{m.group(1)}</span>{m.group(2)}' if m else title
+    st.markdown(f'<div class="rs-sec">{head}</div>' + (f'<div class="rs-muted">{hint}</div>' if hint else ""),
                 unsafe_allow_html=True)
 
 
@@ -680,13 +710,14 @@ def reel_gate_banner():
 
 def create_tab():
     st.markdown(
+        f'<div class="bz-ph"><h2>New reel</h2><p>{TAGLINE}</p></div>'
         '<div class="rs-steps">'
-        '<div class="rs-step"><b><span class="rs-num">1</span>Choose</b><span>Upload photos and clips, or just '
-        'describe an idea.</span></div>'
-        '<div class="rs-step"><b><span class="rs-num">2</span>Style it</b><span>Pick a font, music, voice and '
-        'layout options.</span></div>'
-        '<div class="rs-step"><b><span class="rs-num">3</span>Post it</b><span>Get the reel plus caption and '
-        'hashtags ready to paste.</span></div></div>', unsafe_allow_html=True)
+        '<div class="rs-step"><span class="rs-num">1</span><div><b>Add</b><span>Photos and clips, or describe an idea'
+        '</span></div></div>'
+        '<div class="rs-step"><span class="rs-num">2</span><div><b>Style</b><span>Font, music, voice and layout'
+        '</span></div></div>'
+        '<div class="rs-step"><span class="rs-num">3</span><div><b>Post</b><span>Reel, caption and hashtags, ready to '
+        'paste</span></div></div></div>', unsafe_allow_html=True)
     reel_gate_banner()
     mode = nav_tabs(["From photos and videos", "From an idea"], "From photos and videos", "mode_tab")
     if mode == "From an idea":
@@ -698,9 +729,8 @@ def create_tab():
 
 
 # ---------------------------------------------------------------- my reels
-STAGES = {"catalogue": (12, "Reading your files"), "ai_analysis": (35, "Looking at the pictures"),
-          "planning": (55, "Planning the story"), "rendering": (80, "Making the video"),
-          "finished": (100, "Finished")}
+# The four steps shown under a reel's progress bar, by where the bar is (the same bands for photo and idea reels).
+STAGES = ((14, "Getting started"), (56, "Planning the story"), (96, "Making the video"), (101, "Writing the post"))
 QUICK = {"Shorter": "make it shorter", "More energetic": "make it more energetic", "Calmer": "make it calmer",
          "Remove music": "remove the music"}
 
@@ -743,7 +773,7 @@ def insta_pack(out, jname):
 
 
 @st.fragment(run_every=1.0)
-def live_progress(jname):
+def live_progress(jname, stages=True):
     """A progress bar that updates every second from the worker's real reports and creeps forward between them,
     never past the point the next report is allowed to reach, and never backwards."""
     jd = WORK / "jobs" / jname
@@ -761,6 +791,11 @@ def live_progress(jname):
     st.session_state[key] = shown
     took = int(now - p["t0"]) if p.get("t0") else 0
     st.progress(min(shown, 99.5) / 100, text=f"{p.get('text', 'Working')}  ·  {int(shown)}%  ·  {took // 60}:{took % 60:02d} elapsed")
+    if stages:
+        now_i = next(i for i, (upto, _) in enumerate(STAGES) if shown < upto)
+        st.markdown('<ul class="bz-stages">' + "".join(
+            f'<li class="{"done" if i < now_i else "now" if i == now_i else ""}">{label}</li>'
+            for i, (_, label) in enumerate(STAGES)) + "</ul>", unsafe_allow_html=True)
 
 
 def reel_card(jd, first):
@@ -779,9 +814,9 @@ def reel_card(jd, first):
         h1, h2 = st.columns([3, 1])
         _o = usage.owner_of(jd.name)
         h1.markdown(f"**{jd.name}**" + (f"  ·  {_o}" if OWNER and _o else ""))
-        h2.markdown(f'<div style="text-align:right">{pill(label, kind)}</div>', unsafe_allow_html=True)
+        h2.markdown(f'<div style="text-align:right">{pill(label, kind, dot=True)}</div>', unsafe_allow_html=True)
         if status == "running" or revs.get("state") == "working":
-            live_progress(jd.name)
+            live_progress(jd.name, stages=status == "running")
         elif changing:
             st.progress(0.03, text="Your change is queued. The worker picks it up within seconds.")
         if status == "failed":
@@ -801,8 +836,9 @@ def reel_card(jd, first):
                 import cleanup
                 cleanup.set_kept(jd.name, not kept)
                 st.rerun()
-            st.download_button("⬇ Download video", data=lambda r=reel: r.read_bytes(), file_name=nice_name(jd),
-                               mime="video/mp4", key="dlv" + jd.name, use_container_width=True,
+            st.download_button("Download video", data=lambda r=reel: r.read_bytes(), file_name=nice_name(jd),
+                               mime="video/mp4", key="dlv" + jd.name, use_container_width=True, type="primary",
+                               icon=":material/download:",
                                help="Saves the reel with a clear file name")
         with right:
             t1, t2, t3 = st.tabs(["Instagram pack", "Make a change", "Details"])
@@ -845,7 +881,7 @@ def queued_card(folder):
     with st.container(border=True):
         h1, h2 = st.columns([3, 1])
         h1.markdown(f"**{folder.name}**")
-        h2.markdown(f'<div style="text-align:right">{pill("Waiting to start", "amber")}</div>', unsafe_allow_html=True)
+        h2.markdown(f'<div style="text-align:right">{pill("Waiting to start", "amber", dot=True)}</div>', unsafe_allow_html=True)
         st.progress(0.05, text="Received. The worker starts it about 2 minutes after the last file arrived.")
 
 
@@ -1041,7 +1077,7 @@ def mail_section():
                 st.warning("Fill in all four boxes.")
         if on and d2.button("Send a test", key="mail_test", use_container_width=True):
             try:
-                mailer.send(st.session_state.get("user_email"), "Reel studio test", "Email sending works.")
+                mailer.send(st.session_state.get("user_email"), "Buzz test email", "Email sending works.")
                 st.success("Test sent to your own email.")
             except Exception as e:
                 st.error(f"Could not send: {str(e)[:150]}")
@@ -1148,26 +1184,22 @@ def usage_section():
             st.success("Saved.")
 
 
-def settings_tab():
+def connections_section():
     import stock_provider
     import voice_provider
-    account_section()
-    if not OWNER:
-        own_key_section()
-        return
-    people_section()
-    usage_section()
-    mail_section()
-    section("Connections", "Optional add-ons. The app works fully without them.")
+    section("Connections", "Claude is required. The others are optional add-ons.")
+    key_card("Claude (writing and planning)", "Required for every reel: it looks at your pictures, plans the story and writes the "
+             "captions. Get a key at console.anthropic.com.", "anthropic",
+             lambda v: vault.set_password(SERVICE, "anthropic", v.strip()), "cl", check=check_claude_key)
     kokoro_card()
     key_card("Google voice (Text-to-Speech)", "Natural English voices with Indian accents too. Needs your own key from "
              "console.cloud.google.com (free monthly allowance).", voice_provider.ENTRY, voice_provider.save_key, "gv",
              sample=lambda: voice_sample_button(voice_provider.DEFAULT_VOICE, "gv_hear"))
     key_card("Pexels (stock video)", "Free real video clips behind idea-reel scenes. Reels with Pexels footage "
              "carry a credit line in the Instagram pack.", stock_provider.ENTRY, stock_provider.save_key, "px")
-    key_card("Claude (writing and planning)", "Required for every reel: it looks at your pictures, plans the story and writes the "
-             "captions. Get a key at console.anthropic.com.", "anthropic",
-             lambda v: vault.set_password(SERVICE, "anthropic", v.strip()), "cl", check=check_claude_key)
+
+
+def system_section():
     section("System")
     with st.container(border=True):
         ok, detail = worker_state()
@@ -1185,7 +1217,20 @@ def settings_tab():
         st.caption(f"Video encoder: {encoder.label()}. A graphics card is used automatically when it matches the CPU's picture quality.")
         st.caption(f"Reels In: {REELS_IN}")
         st.caption(f"Reels Out: {REELS_OUT}")
-    cleanup_section()
+
+
+def settings_tab():
+    """Settings, one group at a time. The row of choices at the top picks the group; each group is its own function."""
+    if not OWNER:  # members have just two short sections, so they see both
+        account_section()
+        own_key_section()
+        return
+    groups = {"Connections": connections_section, "Your account": account_section, "People": people_section,
+              "Reel limit": usage_section, "Email sending": mail_section, "System": system_section,
+              "Cleanup": cleanup_section}
+    pick = st.segmented_control("Settings", list(groups), default=list(groups)[0], required=True, key="set_group",
+                                label_visibility="collapsed")
+    groups.get(pick, next(iter(groups.values())))()
 
 
 if page == "Create":
