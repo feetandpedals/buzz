@@ -558,7 +558,8 @@ def upload_form():
         collage = st.checkbox("Make collages of landscape pictures (2 or 3 in one frame, no blurred bars)", key="optcol")
     sig = (rname.strip(), tuple((f.name, f.size) for f in files or []), brief.strip(), fchoice, crop, collage, mkmusic,
            voice_on, voice_name, secs, mkw, assets, open_pick, close_pick, logo_up.name if logo_up else "", music_up.name if music_up else "")
-    go = st.button("Upload and make my reel", type="primary", key="go_up", use_container_width=True)
+    go = st.button("Upload and make my reel", type="primary", key="go_up", use_container_width=True,
+                   disabled=not reel_gate_ok()) and reel_gate_ok()
     if go and not (rname.strip() and (files or music_up)):
         st.warning("Give the reel a name and add at least one photo or video.")
     elif go and st.session_state.get("last_up") == sig:
@@ -674,7 +675,8 @@ def idea_form():
         theme = theme_picker()
         fchoice = font_picker("id_")
     sig = (rname.strip(), idea.strip(), secs, fchoice, mkmusic, mkw, voice_on, voice_name, bg, theme)
-    go = st.button("Create my reel", type="primary", key="go_idea", use_container_width=True)
+    go = st.button("Create my reel", type="primary", key="go_idea", use_container_width=True,
+                   disabled=not reel_gate_ok()) and reel_gate_ok()
     if go and not (rname.strip() and idea.strip()):
         st.warning("Give the reel a name and describe the idea.")
     elif go and st.session_state.get("last_idea") == sig:
@@ -693,6 +695,19 @@ def idea_form():
         st.rerun()
 
 
+def reel_gate_ok():
+    """Checked fresh on every press, so a reel sent from another tab or device still counts."""
+    return usage.reel_gate(st.session_state.get("user_email"))[0]
+
+
+def reel_gate_banner():
+    ok, why, line = usage.reel_gate(st.session_state.get("user_email"))
+    if not ok:
+        st.warning(why)
+    elif line:
+        st.caption(line)
+
+
 def create_tab():
     st.markdown(
         f'<div class="bz-ph"><h2>New reel</h2><p>{TAGLINE}</p></div>'
@@ -703,6 +718,7 @@ def create_tab():
         '</span></div></div>'
         '<div class="rs-step"><span class="rs-num">3</span><div><b>Post</b><span>Reel, caption and hashtags, ready to '
         'paste</span></div></div></div>', unsafe_allow_html=True)
+    reel_gate_banner()
     mode = nav_tabs(["From photos and videos", "From an idea"], "From photos and videos", "mode_tab")
     if mode == "From an idea":
         idea_form()
@@ -1138,35 +1154,22 @@ def own_key_section():
 
 
 def usage_section():
-    section("Reel limits", "How many reels each person can make. 0 means no limit. You are never limited.")
+    section("Reel limit")
     p = usage.policy()
-    dp = p["default"]
+    per_day, per_week = usage.reel_limit()
     with st.container(border=True):
-        a, b, c = st.columns([3, 2, 2])
-        a.markdown("**Everyone** (unless set below)")
-        b.number_input("Reels per day", min_value=0, step=1, value=int(dp["daily_reels"]), key="u_d_dr")
-        c.number_input("Reels per week", min_value=0, step=1, value=int(dp.get("weekly_reels", 0)), key="u_d_wr")
-        users = {e: r for e, r in auth.list_users().items() if r != "owner"}
-        for email in users:
-            up = usage.user_policy(email)
-            s = usage.stats(email)
-            x1, x2, x3 = st.columns([3, 2, 2])
-            x1.markdown(f"{email}  \n<span style='opacity:.7;font-size:.85rem'>{s['reels_today']} today, {s['reels_week']} this week</span>",
-                        unsafe_allow_html=True)
-            x2.number_input("Reels per day", min_value=0, step=1, value=int(up["daily_reels"]), key=f"u_dr_{email}", label_visibility="collapsed")
-            x3.number_input("Reels per week", min_value=0, step=1, value=int(up.get("weekly_reels", 0)), key=f"u_wr_{email}", label_visibility="collapsed")
+        a, b, c, d, e = st.columns([1.25, 0.8, 1.05, 0.8, 2.4], vertical_alignment="center")
+        a.markdown("Each person can make")
+        b.number_input("Reels a day", min_value=0, step=1, value=per_day, key="u_d_dr", label_visibility="collapsed")
+        c.markdown("reels a day and")
+        d.number_input("Reels a week", min_value=0, step=1, value=per_week, key="u_d_wr", label_visibility="collapsed")
+        e.markdown("a week.")
+        st.caption("0 means no limit. You (the owner) are never limited.")
         st.toggle("Pause everyone's reels", value=p["kill"], key="u_kill")
         if st.button("Save", type="primary", key="u_save"):
+            usage.set_reel_limit(st.session_state.get("u_d_dr"), st.session_state.get("u_d_wr"))
             q = usage.policy()
             q["kill"] = bool(st.session_state.get("u_kill"))
-            q["default"] = {"shared_key": True, "monthly_tokens": 0, "daily_reels": int(st.session_state.get("u_d_dr") or 0),
-                            "weekly_reels": int(st.session_state.get("u_d_wr") or 0)}
-            q["users"] = {}
-            for email in users:
-                mine = {"shared_key": True, "monthly_tokens": 0, "daily_reels": int(st.session_state.get(f"u_dr_{email}") or 0),
-                        "weekly_reels": int(st.session_state.get(f"u_wr_{email}") or 0)}
-                if mine != q["default"]:
-                    q["users"][usage.norm(email)] = mine
             usage.save_policy(q)
             st.success("Saved.")
 
