@@ -1,6 +1,8 @@
+<img src="assets/buzz-mark.png" width="56" alt="Buzz logo">
+
 # Buzz
 
-**AI Reel Studio: reels from photos, videos or just an idea**
+**Reels from photos, clips or just an idea.**
 
 Buzz turns a stack of photos and videos, or just a written idea, into a ready-to-post 9:16 Instagram reel with music, text, a caption and five hashtags. It runs on a machine you control and works on its own in the background.
 

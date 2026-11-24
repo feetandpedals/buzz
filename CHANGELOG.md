@@ -1,6 +1,15 @@
 # Buzz changelog
 
-AI Reel Studio: reels from photos, videos or just an idea
+Reels from photos, clips or just an idea.
+
+## Unreleased: new look
+
+- One name everywhere: Buzz. "AI Reel Studio" and "reel studio" are gone from the screens, emails and README. Saved keys are untouched.
+- New logo (a honeycomb cell with a play button), honey brand colour, Bricolage Grotesque and Inter fonts bundled with the app. Light and dark follow the computer.
+- Slim top bar with the worker status and sign-out; Create opens with a clear heading.
+- My reels shows the four steps of a reel under its progress bar.
+- Settings shows one group at a time (Connections, Your account, People, Reel limit, Email sending, System, Cleanup), with Claude first.
+- Tabs are now drawn by Streamlit itself; the streamlit-shadcn-ui library is no longer needed.
 
 ## 2.1.1 (13 Nov 2026): Simpler reel limits
 
