@@ -19,9 +19,9 @@ Put nginx in front of the page for outside access. Tested on Ubuntu 24.04 (x86-6
 ## Install (as a normal user, no root needed)
 
 1. Copy or unzip Buzz into the service user's home, for example `~/buzz`.
-2. `./install_linux.sh` - sets up Python 3.12, a full FFmpeg (with the text filter), the Python environment and the face detector, all inside the folder.
+2. `./setup.sh` - sets up Python 3.12, a full FFmpeg (with the text filter), the Python environment and the face detector, all inside the folder, creates `buzz.env` and starts Buzz.
    If the machine has no Python 3.11 to 3.13, the script fetches a private Python with `uv`. It only downloads what is missing.
-3. `./deploy/install-services.sh` - installs and starts the two systemd user services, with CPU and memory caps (edit `deploy/*.service` first to change them).
+3. With systemd, setup installs the two user services with the CPU and memory caps from `buzz.env` (see `DEPLOY.md`); without it, Buzz runs as background processes.
    Once, as an administrator: `sudo loginctl enable-linger <user>` so the services keep running after logout.
 4. nginx: copy `deploy/nginx-buzz.conf` to `/etc/nginx/sites-available/`, set your domain, enable it, then add HTTPS with certbot.
    The page needs websocket headers and long timeouts; the file already has them.
@@ -43,7 +43,7 @@ Put nginx in front of the page for outside access. Tested on Ubuntu 24.04 (x86-6
 
 ## Update
 
-Unpack the new version over the old folder (keep `Work/`, `Reels In`, `Reels Out`), run `./install_linux.sh` again, then `systemctl --user restart buzz-worker buzz-web`.
+Unpack the new version over the old folder (keep `Work/`, `Reels In`, `Reels Out`), run `./setup.sh` again.
 
 ## Uninstall
 
@@ -52,6 +52,6 @@ Unpack the new version over the old folder (keep `Work/`, `Reels In`, `Reels Out
 ## Troubleshooting
 
 - *The page loads but reels never start:* check `systemctl --user status buzz-worker` and `Work/logs/worker.log`.
-- *"ffmpeg not found":* run `./install_linux.sh` again; Buzz looks in `./bin`, `~/.local/bin` and `/usr/local/bin`.
+- *"ffmpeg not found":* run `./setup.sh` again; Buzz looks in `./bin`, `~/.local/bin` and `/usr/local/bin`.
 - *Text missing in videos:* the FFmpeg must have the `drawtext` filter; the installer checks for it and downloads a full build if needed.
 - *Page stuck on "connecting":* nginx is missing the websocket headers; use `deploy/nginx-buzz.conf`.

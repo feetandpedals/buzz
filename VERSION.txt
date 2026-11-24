@@ -1,2 +1,2 @@
-Buzz 2.1.2
+Buzz 2.2.0
 Build date: 24 Nov 2026

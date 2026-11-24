@@ -74,11 +74,11 @@ Buzz offers two voices, and you can pick either on the Create page once it is se
 ## Linux and servers
 
 ```
-./install_linux.sh            # Python 3.12, FFmpeg, environment, face detector; no root needed
-./deploy/install-services.sh  # worker and web page as systemd user services with CPU and memory caps
+./setup.sh                    # installs everything, creates buzz.env, starts Buzz with memory and CPU caps; no root needed
+./buzzctl.sh status           # also: restart, logs
 ```
 
-Then put nginx in front (a ready file is in `deploy/`), open the site, create the owner account and add your Claude key in Settings. Keys are kept encrypted outside the project folder. The full guide, with sizing, secrets, updates and troubleshooting, is `docs/SERVER.md`.
+Then put nginx in front (a ready file is in `deploy/`), open the site, create the owner account, add your Claude key and install the free voice in Settings. Settings for the server (port, threads, memory caps) are in `buzz.env`. Keys are kept encrypted outside the project folder. Deploying to a shared server: `DEPLOY.md`. Sizing and troubleshooting: `docs/SERVER.md`.
 
 ## People, keys and limits
 

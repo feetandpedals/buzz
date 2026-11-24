@@ -11,7 +11,7 @@ PROTO = sys.stdout          # the answers go here
 sys.stdout = sys.stderr     # anything a library prints must not corrupt the answers
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from common import FFMPEG, ROOT  # noqa: E402
+from common import FFMPEG, ROOT, THREADS  # noqa: E402
 
 MODELS = ROOT / "Work" / "models"
 _model = None
@@ -26,7 +26,8 @@ def load():
         so = rt.SessionOptions()
         so.enable_cpu_mem_arena = False
         so.enable_mem_pattern = False
-        so.intra_op_num_threads = max(1, min(4, os.cpu_count() or 1))
+        so.intra_op_num_threads = THREADS
+        so.inter_op_num_threads = 1
         sess = rt.InferenceSession(str(MODELS / "kokoro-v1.0.onnx"), sess_options=so, providers=["CPUExecutionProvider"])
         _model = Kokoro.from_session(sess, str(MODELS / "voices-v1.0.bin"))
     return _model

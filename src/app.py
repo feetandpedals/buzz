@@ -1128,15 +1128,25 @@ def kokoro_card():
         a.markdown("**Free voice (Kokoro)**")
         b.markdown(f'<div style="text-align:right">{pill("Installed", "green") if ready else pill("Not installed", "gray")}</div>',
                    unsafe_allow_html=True)
-        st.caption("A free, open-source English voice that runs on this PC. No key and no account. "
-                   "One-time download of about 330 MB. Details: github.com/thewh1teagle/kokoro-onnx")
-        if not ready and st.button("Install the free voice", key="ko_install", type="primary"):
-            with st.spinner("Downloading the voice. This takes a few minutes..."):
-                try:
-                    vp.install_kokoro()
-                except Exception as e:
-                    st.error(f"Download failed: {str(e)[:150]}")
+        st.caption("A free, open-source English voice that runs on this server. No key and no account. "
+                   "One-time download of about 350 MB. Details: github.com/thewh1teagle/kokoro-onnx")
+        if not ready and vp.kokoro_installing():
+            st.info("The free voice is downloading. Refresh this page in a minute or two.")
+        elif not ready and st.button("Install the free voice", key="ko_install", type="primary"):
+            bar = st.progress(0.0, text="Downloading the free voice...")
+
+            def shown(done, total):
+                bar.progress(min(1.0, done / total), text=f"Downloading the free voice... {done // 1_000_000} of {total // 1_000_000} MB")
+
+            try:
+                vp.install_kokoro(shown)
+                st.session_state["flash_ko"] = "The free voice is installed."
+            except Exception as e:
+                st.session_state["flash_ko"] = f"Download failed: {str(e)[:200]}"
             st.rerun()
+        msg = st.session_state.pop("flash_ko", None)
+        if msg:
+            (st.success if ready else st.error)(msg)
         if ready:
             voice_sample_button(vp.KOKORO_DEFAULT, "ko_hear")
 

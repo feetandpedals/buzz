@@ -2,7 +2,7 @@
 
 Reels from photos, clips or just an idea.
 
-## Unreleased: new look
+## 2.2.0 (24 Nov 2026): New look, ready for a shared Linux server
 
 - One name everywhere: Buzz. "AI Reel Studio" and "reel studio" are gone from the screens, emails and README. Saved keys are untouched.
 - New logo (a honeycomb cell with a play button), honey brand colour, Bricolage Grotesque and Inter fonts bundled with the app. Light and dark follow the computer.
@@ -10,6 +10,12 @@ Reels from photos, clips or just an idea.
 - My reels shows the four steps of a reel under its progress bar.
 - Settings shows one group at a time (Connections, Your account, People, Reel limit, Email sending, System, Cleanup), with Claude first.
 - Tabs are now drawn by Streamlit itself; the streamlit-shadcn-ui library is no longer needed.
+- One setup command: `./setup.sh` installs everything, creates `buzz.env` and starts Buzz, as systemd user services when the server has them or as background processes when it does not. `./buzzctl.sh` starts, stops, checks and shows logs.
+- Server settings in one file, `buzz.env`: address and port, upload size, CPU threads per reel, memory and CPU caps, and optional secrets and Claude gateway.
+- Shared-hosting limits by default: 2 threads per reel (video encoding, free voice, music analysis), 3 GB cap for rendering, 1 GB for the web page, 2 cores. A 30-second voiced reel peaks at about 1.3 GB.
+- The free voice installs from Settings with a progress bar. The download is checked (size and fingerprint), resumes if cut off, and only runs once at a time.
+- Fixed the installer re-downloading FFmpeg on every run.
+- New `DEPLOY.md`, an end-to-end server check (`tests/smoke_reel.py`) and a stand-in for Claude for key-free install tests.
 
 ## 2.1.2 (24 Nov 2026): One-line reel limit
 

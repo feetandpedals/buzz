@@ -24,7 +24,8 @@ echo "Using $PY ($("$PY" --version))"
 
 step "2/7  FFmpeg (needs the drawtext filter for titles and captions)"
 mkdir -p bin
-have_ok() { local f="$1"; [ -x "$f" ] && "$f" -hide_banner -filters 2>/dev/null | grep -q drawtext; }
+# no grep -q here: with pipefail, grep -q closing the pipe early makes a good FFmpeg look broken
+have_ok() { local f="$1"; [ -x "$f" ] && "$f" -hide_banner -filters 2>/dev/null | grep drawtext >/dev/null; }
 if [ "${BUZZ_SKIP_FFMPEG:-0}" = "1" ] || have_ok bin/ffmpeg || { command -v ffmpeg >/dev/null 2>&1 && have_ok "$(command -v ffmpeg)"; }; then
   echo "A suitable FFmpeg is already available."
 else
@@ -65,13 +66,5 @@ step "6/7  Folders"
 mkdir -p "Reels In" "Reels Out" Work
 touch .installed
 
-step "7/7  Background services"
-cat <<EOF
-Installed in: $ROOT
-Next: run the web page and the worker as services. Ready-made files are in deploy/:
-  deploy/buzz-worker.service, deploy/buzz-web.service  (systemd user services, with CPU and memory caps)
-  deploy/nginx-buzz.conf                               (reverse proxy with websocket support)
-See README_LINUX.md. Quick try without services:
-  .venv/bin/python src/worker.py &      .venv/bin/python -m streamlit run src/app.py --server.address 127.0.0.1 --server.port 8501
-Add your Claude key on the Settings tab after signing in (it is stored encrypted, outside this folder).
-EOF
+step "7/7  Done"
+echo "Installed in: $ROOT. Start it with ./setup.sh (or ./buzzctl.sh start). Guide: DEPLOY.md"

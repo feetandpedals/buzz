@@ -2,12 +2,13 @@
 Buzz needs just one call, so it does not use the Anthropic SDK. That keeps installs light and avoids compiled
 dependencies that some Windows security policies (Smart App Control) block."""
 import json
+import os
 import time
 import urllib.error
 import urllib.request
 from types import SimpleNamespace
 
-URL = "https://api.anthropic.com/v1/messages"
+URL = "https://api.anthropic.com/v1/messages"  # BUZZ_CLAUDE_URL (buzz.env) can point this at a gateway
 VERSION = "2023-06-01"
 
 
@@ -27,7 +28,7 @@ class _Messages:
         headers = {"x-api-key": self._key, "anthropic-version": VERSION, "content-type": "application/json"}
         last = None
         for attempt in range(5):
-            req = urllib.request.Request(URL, data=body, headers=headers, method="POST")
+            req = urllib.request.Request(os.environ.get("BUZZ_CLAUDE_URL") or URL, data=body, headers=headers, method="POST")
             try:
                 with urllib.request.urlopen(req, timeout=300) as r:
                     data = json.loads(r.read().decode("utf-8"))

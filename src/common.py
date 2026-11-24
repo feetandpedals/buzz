@@ -6,6 +6,39 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
+
+
+def _load_env_file(path):
+    """Reads buzz.env (NAME=value lines) into the environment. Values already set (systemd, the shell) win."""
+    try:
+        lines = Path(path).read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return
+    for line in lines:
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        k, v = line.split("=", 1)
+        k, v = k.strip(), v.strip().strip('"').strip("'")
+        if k and v:
+            os.environ.setdefault(k, v)
+
+
+_load_env_file(ROOT / "buzz.env")
+
+
+def _threads():
+    try:
+        n = int(os.environ.get("BUZZ_THREADS") or 0)
+    except ValueError:
+        n = 0
+    return max(1, n if n > 0 else min(4, os.cpu_count() or 1))
+
+
+THREADS = _threads()  # CPU threads one reel may use; numeric libraries read these before they load
+for _v in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS", "NUMBA_NUM_THREADS", "VECLIB_MAXIMUM_THREADS"):
+    os.environ.setdefault(_v, str(THREADS))
+
 REELS_IN = ROOT / "Reels In"
 REELS_OUT = ROOT / "Reels Out"
 WORK = ROOT / "Work"

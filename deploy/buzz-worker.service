@@ -1,21 +1,25 @@
-# systemd USER service: the background worker. Install to ~/.config/systemd/user/ and edit BUZZ_DIR below.
-# Enable lingering once so it keeps running after logout:  loginctl enable-linger $USER
+# systemd USER service: the background worker that renders reels, one at a time.
+# deploy/install-services.sh fills in the folder and the limits from buzz.env; edit buzz.env, not this file.
+# Enable lingering once so it keeps running after logout:  sudo loginctl enable-linger $USER
 [Unit]
 Description=Buzz worker (renders reels)
 After=network-online.target
 
 [Service]
 Type=simple
-WorkingDirectory=%h/buzz
-ExecStart=%h/buzz/.venv/bin/python %h/buzz/src/worker.py
+WorkingDirectory=@ROOT@
+EnvironmentFile=-@ROOT@/buzz.env
+ExecStart=/bin/bash @ROOT@/buzzctl.sh run-worker
 Restart=always
 RestartSec=5
-# keep rendering from starving other apps on the same machine
+# keep rendering from starving other sites on the same machine
 Nice=10
-CPUQuota=300%
-MemoryMax=6G
-# secrets: master key may be supplied here instead of the key file (optional)
-#Environment=BUZZ_MASTER_KEY=
+IOSchedulingClass=idle
+CPUQuota=@CPU_QUOTA@
+MemoryHigh=@WORKER_MEMORY_HIGH@
+MemoryMax=@WORKER_MEMORY@
+# if the memory cap is hit, the worker restarts and the interrupted reel resumes from its last finished step
+OOMPolicy=stop
 
 [Install]
 WantedBy=default.target

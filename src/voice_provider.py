@@ -8,6 +8,7 @@ import json
 import os
 import subprocess
 import sys
+import time
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -18,8 +19,15 @@ from common import FFMPEG, FFPROBE
 
 PROVIDER = "google"
 MODELS = Path(__file__).resolve().parent.parent / "Work" / "models"
-KOKORO_FILES = {"kokoro-v1.0.onnx": "https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0/kokoro-v1.0.onnx",
-                "voices-v1.0.bin": "https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0/voices-v1.0.bin"}
+_KOKORO_BASE = "https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0/"
+# name -> (download address, exact size in bytes, sha256). Checked after every download so a cut-off or altered file is never used.
+KOKORO_FILES = {
+    "kokoro-v1.0.onnx": (_KOKORO_BASE + "kokoro-v1.0.onnx", 325_532_387,
+                         "7d5df8ecf7d4b1878015a32686053fd0eebe2bc377234608764cc0ef3636a6c5"),
+    "voices-v1.0.bin": (_KOKORO_BASE + "voices-v1.0.bin", 28_214_398,
+                        "bca610b8308e8d99f32e6fe4197e7ec01679264efed0cac9140fe9c29f1fbf7d"),
+}
+KOKORO_TOTAL = sum(v[1] for v in KOKORO_FILES.values())
 KOKORO_VOICES = {
     "kokoro:af_heart": "Free voice: US, woman (warm)",
     "kokoro:af_bella": "Free voice: US, woman (bright)",
@@ -57,7 +65,7 @@ def kokoro_ready():
         import kokoro_onnx  # noqa: F401
     except Exception:
         return False
-    return all((MODELS / n).exists() and (MODELS / n).stat().st_size > 1_000_000 for n in KOKORO_FILES)
+    return all((MODELS / n).is_file() and (MODELS / n).stat().st_size == v[1] for n, v in KOKORO_FILES.items())
 
 
 def available():
@@ -78,18 +86,64 @@ def default_voice():
     return DEFAULT_VOICE if google_ready() else KOKORO_DEFAULT
 
 
-def install_kokoro():
-    """Downloads the two free-voice model files (about 330 MB) next to the app. Safe to run again."""
+def kokoro_installing():
+    """True while another page or person is downloading the free voice."""
+    lock = MODELS / ".installing"
+    try:
+        return lock.exists() and time.time() - lock.stat().st_mtime < 120  # the download touches it at least once a minute
+    except OSError:
+        return False
+
+
+def install_kokoro(on_progress=None):
+    """Downloads the two free-voice model files (about 350 MB) into Work/models. Safe to run again: finished files are
+    skipped, a cut-off download carries on where it stopped, and each file is checked (size and sha256) before use.
+    on_progress(done_bytes, total_bytes) is called as it goes. Only one download runs at a time."""
     MODELS.mkdir(parents=True, exist_ok=True)
-    for name, url in KOKORO_FILES.items():
-        dest = MODELS / name
-        if dest.exists() and dest.stat().st_size > 1_000_000:
-            continue
-        tmp = dest.with_suffix(".part")
-        with urllib.request.urlopen(url, timeout=120) as r, open(tmp, "wb") as f:
-            while chunk := r.read(1 << 20):
-                f.write(chunk)
-        tmp.replace(dest)
+    lock = MODELS / ".installing"
+    if kokoro_installing():
+        raise RuntimeError("The free voice is already being downloaded. Please wait a few minutes and refresh.")
+    lock.write_text(str(os.getpid()))
+    try:
+        done = 0
+        for name, (url, size, sha) in KOKORO_FILES.items():
+            dest = MODELS / name
+            if dest.is_file() and dest.stat().st_size == size:
+                done += size
+                continue
+            tmp = dest.with_name(name + ".part")
+            have = tmp.stat().st_size if tmp.exists() else 0
+            if have >= size:
+                tmp.unlink()
+                have = 0
+            req = urllib.request.Request(url, headers={"Range": f"bytes={have}-"} if have else {})
+            with urllib.request.urlopen(req, timeout=120) as r:
+                if have and r.status != 206:  # the server ignored the resume request: start this file again
+                    have = 0
+                with open(tmp, "ab" if have else "wb") as f:
+                    last = 0.0
+                    got = have
+                    while chunk := r.read(1 << 20):
+                        f.write(chunk)
+                        got += len(chunk)
+                        if time.time() - last > 1:
+                            last = time.time()
+                            lock.touch()
+                            if on_progress:
+                                on_progress(done + got, KOKORO_TOTAL)
+            h = hashlib.sha256()
+            with open(tmp, "rb") as f:
+                while chunk := f.read(1 << 20):
+                    h.update(chunk)
+            if tmp.stat().st_size != size or h.hexdigest() != sha:
+                tmp.unlink(missing_ok=True)
+                raise RuntimeError(f"{name} did not download correctly (it was incomplete or changed). Please try again.")
+            tmp.replace(dest)
+            done += size
+            if on_progress:
+                on_progress(done, KOKORO_TOTAL)
+    finally:
+        lock.unlink(missing_ok=True)
     return kokoro_ready()
 
 
