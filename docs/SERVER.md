@@ -38,7 +38,7 @@ Put nginx in front of the page for outside access. Tested on Ubuntu 24.04 (x86-6
 
 - Every reel belongs to the person who made it; members see only their own reels, the owner sees all.
 - Each person can add their **own Claude key** (Settings), so their reels are paid by their own account.
-- The owner decides who may use the shared studio key, and sets per-person monthly token and daily reel limits, a studio-wide monthly budget and optional prices for cost estimates.
+- Everyone may use the shared studio key. The owner sets one reel limit for everyone in Settings (reels a day and reels a week; 0 means no limit) and can pause everyone's reels.
   A **Pause AI for everyone** switch stops all shared-key use at once. Usage is kept as token counts only (`Work/usage.jsonl`), never prompts or keys.
 
 ## Update

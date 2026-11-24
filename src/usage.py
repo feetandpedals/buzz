@@ -18,7 +18,7 @@ SERVICE = "ai-reel-studio"
 _ctx = {"user": "", "reel": ""}
 
 DEFAULTS = {"kill": False, "global_monthly_tokens": 0, "price_in_per_m": 0.0, "price_out_per_m": 0.0,
-            "default": {"monthly_tokens": 0, "daily_reels": 0, "weekly_reels": 0, "shared_key": False}, "users": {}}
+            "default": {"monthly_tokens": 0, "daily_reels": 0, "weekly_reels": 0, "shared_key": True}, "users": {}}
 
 
 class LimitError(RuntimeError):
@@ -48,12 +48,31 @@ def save_policy(p):
 
 
 def user_policy(email, is_owner=False):
+    """One reel limit for everyone: reels per day and per week always come from the studio line in Settings.
+    Old per-person numbers (from 2.1.0/2.1.1) are ignored so they cannot quietly override that line."""
     p = policy()
     u = dict(p["default"])
-    u.update(p["users"].get(norm(email), {}))
+    u.update({k: v for k, v in p["users"].get(norm(email), {}).items() if k not in ("daily_reels", "weekly_reels")})
     if is_owner:
         u["shared_key"] = True
     return u
+
+
+def reel_limit():
+    """(reels per day, reels per week) for everyone; 0 means no limit."""
+    d = policy()["default"]
+    return int(d.get("daily_reels") or 0), int(d.get("weekly_reels") or 0)
+
+
+def set_reel_limit(per_day, per_week):
+    """Saves the one-line limit. Everyone may use the studio key; old per-person reel numbers are cleared."""
+    p = policy()
+    p["default"].update(daily_reels=max(0, int(per_day or 0)), weekly_reels=max(0, int(per_week or 0)), shared_key=True)
+    for u in p["users"].values():
+        u.pop("daily_reels", None)
+        u.pop("weekly_reels", None)
+    p["users"] = {k: v for k, v in p["users"].items() if v}
+    save_policy(p)
 
 
 # ---------------------------------------------------------------- context (set by the worker for the job in hand)
@@ -112,7 +131,19 @@ def record(user, reel, op, model, usage, source):
         f.write(json.dumps(row) + "\n")
 
 
+def _started(rows, email):
+    """First reel_start row per reel for this user: a reel that restarts or is retried counts once."""
+    seen, out = set(), []
+    for r in rows:
+        if r.get("op") == "reel_start" and r.get("user") == norm(email) and r.get("reel") not in seen:
+            seen.add(r.get("reel"))
+            out.append(r)
+    return out
+
+
 def record_reel_start(user, reel):
+    if reel and any(r.get("op") == "reel_start" and r.get("reel") == reel and r.get("user") == norm(user) for r in _rows()):
+        return  # already counted (worker restart or Try again)
     record(user, reel, "reel_start", "", {}, "")
 
 
@@ -127,14 +158,58 @@ def tokens(rows):
 def stats(email):
     """This month's numbers for one user: shared-key tokens, own-key tokens, reels started this month and today."""
     m, d = month_key(), time.strftime("%Y-%m-%d")
-    mine = [r for r in _rows() if r.get("user") == norm(email) and r.get("ts", "")[:7] == m]
+    rows = _rows()
+    mine = [r for r in rows if r.get("user") == norm(email) and r.get("ts", "")[:7] == m]
     calls = [r for r in mine if r.get("op") != "reel_start"]
-    starts = [r for r in mine if r.get("op") == "reel_start"]
-    wk = time.strftime("%Y-%m-%d", time.localtime(time.time() - time.localtime().tm_wday * 86400))  # Monday of this week
-    wk_starts = [r for r in [x for x in _rows() if x.get("user") == norm(email) and x.get("op") == "reel_start"] if r.get("ts", "")[:10] >= wk]
+    started = _started(rows, email)
+    starts = [r for r in started if r.get("ts", "")[:7] == m]
+    wk = _monday()
+    wk_starts = [r for r in started if r.get("ts", "")[:10] >= wk]
     return {"reels_week": len(wk_starts), "shared_tokens": tokens([r for r in calls if r.get("key") == "shared"]),
             "own_tokens": tokens([r for r in calls if r.get("key") == "own"]),
             "reels_month": len(starts), "reels_today": len([r for r in starts if r["ts"][:10] == d])}
+
+
+def _monday():
+    t = time.localtime()
+    return time.strftime("%Y-%m-%d", time.localtime(time.mktime((t.tm_year, t.tm_mon, t.tm_mday - t.tm_wday, 12, 0, 0, 0, 0, -1))))
+
+
+def _waiting(email):
+    """Reels this user has sent that the worker has not picked up yet (folder in Reels In, no job yet)."""
+    inbox = ROOT / "Reels In"
+    if not email or not inbox.exists():
+        return 0
+    n = 0
+    for f in inbox.iterdir():
+        if f.is_dir() and not (WORK / "jobs" / f.name / "job.json").exists():
+            try:
+                if norm(json.loads((f / "options.json").read_text(encoding="utf-8-sig")).get("owner", "")) == norm(email):
+                    n += 1
+            except Exception:
+                pass
+    return n
+
+
+def _reels(n):
+    return f"{n} reel" if n == 1 else f"{n} reels"
+
+
+def reel_gate(email):
+    """For the Create tab: (may send another reel, message when not, short count line). The owner is never limited.
+    Reels waiting to start count too, so nobody can queue past the limit."""
+    email = norm(email)
+    per_day, per_week = reel_limit()
+    if not email or _is_admin(email) or not (per_day or per_week):
+        return True, "", ""
+    s, w = stats(email), _waiting(email)
+    today, week = s["reels_today"] + w, s["reels_week"] + w
+    parts = ([f"{today} of {per_day} today"] if per_day else []) + ([f"{week} of {per_week} this week"] if per_week else [])
+    if per_day and today >= per_day:
+        return False, f"You've made {today} of your {_reels(per_day)} today. You can make more tomorrow.", " · ".join(parts)
+    if per_week and week >= per_week:
+        return False, f"You've made {week} of your {_reels(per_week)} this week. You can make more on Monday.", " · ".join(parts)
+    return True, "", " · ".join(parts)
 
 
 def studio_shared_tokens_month():
@@ -207,17 +282,21 @@ def check_before_call(email, source):
             raise LimitError("Your monthly allowance on the shared key is used up. Add your own Claude key on the Settings tab, or ask the administrator.")
 
 
-def check_reel_start(email):
-    """Called when a reel begins: key available, kill switch, daily reel cap."""
+def check_reel_start(email, reel=""):
+    """Called when a reel begins: key available, pause switch, reels per day and per week.
+    The owner is never limited, and a reel that already started once (worker restart, Try again) is not checked again."""
     email = norm(email)
     key, source = key_for(email)
     check_before_call(email, source)
-    if email:
-        up = user_policy(email, _is_admin(email))
-        if up["daily_reels"] and stats(email)["reels_today"] >= up["daily_reels"]:
-            raise LimitError(f"You have reached today's limit of {up['daily_reels']} reels. Please try again tomorrow.")
-        if up.get("weekly_reels") and stats(email)["reels_week"] >= up["weekly_reels"]:
-            raise LimitError(f"You have reached this week's limit of {up['weekly_reels']} reels. The week starts again on Monday.")
+    if email and not _is_admin(email):
+        if reel and any(r.get("reel") == reel for r in _started(_rows(), email)):
+            return source
+        per_day, per_week = reel_limit()
+        s = stats(email)
+        if per_day and s["reels_today"] >= per_day:
+            raise LimitError(f"You've made {s['reels_today']} of your {_reels(per_day)} today. You can make more tomorrow.")
+        if per_week and s["reels_week"] >= per_week:
+            raise LimitError(f"You've made {s['reels_week']} of your {_reels(per_week)} this week. You can make more on Monday.")
     return source
 
 
