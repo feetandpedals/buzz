@@ -61,7 +61,7 @@ def run_job(folder):
         owner = read_options(folder).get("owner", "")
         usage.record_owner(name, owner)
         usage.set_context(owner, name)
-        usage.check_reel_start(owner)  # key available, not paused, within the daily reel limit
+        usage.check_reel_start(owner, name)  # key available, not paused, within reels per day and per week
         usage.record_reel_start(owner, name)
         cat_file = job / "catalogue.json"
         if cat_file.exists():
