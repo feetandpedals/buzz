@@ -58,7 +58,6 @@ soundfile==0.14.0
 soxr==1.1.0
 starlette==1.10.0
 streamlit==1.67.0
-streamlit-shadcn-ui==1.5.0
 threadpoolctl==3.8.0
 truststore==0.10.5
 typing-inspection==0.4.5

@@ -1,11 +1,40 @@
+# Buzz brand: honey is the one brand colour, ink on white with violet-tinted greys.
+# Light and dark follow the computer's setting; both fonts are bundled in src/static/fonts (SIL Open Font License).
 [theme]
-base = "light"
-primaryColor = "#18181b"
-backgroundColor = "#ffffff"
-secondaryBackgroundColor = "#f4f4f5"
-textColor = "#18181b"
-font = "sans serif"
+primaryColor = "#F5A524"
+baseRadius = "10px"
+showWidgetBorder = true
+font = "Inter, 'Segoe UI', system-ui, sans-serif"
+headingFont = "'Bricolage Grotesque', Inter, 'Segoe UI', system-ui, sans-serif"
+headingFontWeights = [800, 800, 700, 700, 700, 700]
+
+[[theme.fontFaces]]
+family = "Inter"
+url = "app/static/fonts/Inter.woff2"
+weight = "100 900"
+
+[[theme.fontFaces]]
+family = "Bricolage Grotesque"
+url = "app/static/fonts/BricolageGrotesque.woff2"
+weight = "200 800"
+
+[theme.light]
+primaryColor = "#F5A524"
+backgroundColor = "#FFFFFF"
+secondaryBackgroundColor = "#F6F5F8"
+textColor = "#17151F"
+linkColor = "#8A5300"
+borderColor = "#E6E4EC"
+
+[theme.dark]
+primaryColor = "#F5A524"
+backgroundColor = "#121019"
+secondaryBackgroundColor = "#1C1A25"
+textColor = "#ECEAF2"
+linkColor = "#F7B84B"
+borderColor = "#2E2B3A"
 
 [server]
 maxUploadSize = 1500
 enableXsrfProtection = true
+enableStaticServing = true
