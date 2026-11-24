@@ -2,6 +2,15 @@
 
 AI Reel Studio: reels from photos, videos or just an idea
 
+## 2.2.0 (24 Nov 2026): Ready for a shared Linux server
+
+- One setup command: `./setup.sh` installs everything, creates `buzz.env` and starts Buzz, as systemd user services when the server has them or as background processes when it does not. `./buzzctl.sh` starts, stops, checks and shows logs.
+- Server settings in one file, `buzz.env`: address and port, upload size, CPU threads per reel, memory and CPU caps, and optional secrets and Claude gateway.
+- Shared-hosting limits by default: 2 threads per reel (video encoding, free voice, music analysis), 3 GB cap for rendering, 1 GB for the web page, 2 cores. A 30-second voiced reel peaks at about 1.3 GB.
+- The free voice installs from Settings with a progress bar. The download is checked (size and fingerprint), resumes if cut off, and only runs once at a time.
+- Fixed the installer re-downloading FFmpeg on every run.
+- New `DEPLOY.md`, an end-to-end server check (`tests/smoke_reel.py`) and a stand-in for Claude for key-free install tests.
+
 ## 2.1.1 (13 Nov 2026): Simpler reel limits
 
 - Settings now has one plain Reel limits box: reels per day and reels per week for everyone, and the same two boxes for each person. 0 means no limit.

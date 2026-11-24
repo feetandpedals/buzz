@@ -1,16 +1,19 @@
 # systemd USER service: the web page, bound to localhost only (nginx is the public door).
+# deploy/install-services.sh fills in the folder and the limits from buzz.env; edit buzz.env, not this file.
 [Unit]
 Description=Buzz web page
 After=network-online.target
 
 [Service]
 Type=simple
-WorkingDirectory=%h/buzz
-ExecStart=%h/buzz/.venv/bin/python -m streamlit run %h/buzz/src/app.py --server.address 127.0.0.1 --server.port 8501 --server.headless true --browser.gatherUsageStats false --server.maxUploadSize 4000
+WorkingDirectory=@ROOT@
+EnvironmentFile=-@ROOT@/buzz.env
+ExecStart=/bin/bash @ROOT@/buzzctl.sh run-web
 Restart=always
 RestartSec=5
 Nice=5
-MemoryMax=2G
+MemoryHigh=@WEB_MEMORY_HIGH@
+MemoryMax=@WEB_MEMORY@
 
 [Install]
 WantedBy=default.target

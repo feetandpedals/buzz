@@ -6,7 +6,7 @@ import re
 import subprocess
 from pathlib import Path
 
-from common import FFMPEG, WORK
+from common import FFMPEG, THREADS, WORK
 
 CACHE = WORK / "encoder.json"
 CPU = {"name": "CPU (software)", "codec": "libx264"}
@@ -106,11 +106,11 @@ def args(crf, cpu_only=False):
     """ffmpeg video-encoder arguments for the chosen encoder; crf is the CPU quality setting."""
     e = dict(CPU) if cpu_only else current()
     if e["codec"] == "libx264":
-        return ["-c:v", "libx264", "-preset", "veryfast", "-crf", str(crf)]
+        return ["-c:v", "libx264", "-preset", "veryfast", "-crf", str(crf), "-threads", str(THREADS)]
     for _, codec, build, _q in CANDIDATES:
         if codec == e["codec"]:
             return ["-c:v", codec] + build(e["quality"])
-    return ["-c:v", "libx264", "-preset", "veryfast", "-crf", str(crf)]
+    return ["-c:v", "libx264", "-preset", "veryfast", "-crf", str(crf), "-threads", str(THREADS)]
 
 
 def uses_gpu():

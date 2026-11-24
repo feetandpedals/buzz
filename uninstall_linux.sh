@@ -24,6 +24,12 @@ for u in buzz-worker buzz-web; do
 done
 command -v systemctl >/dev/null 2>&1 && act "Reloading systemd" systemctl --user daemon-reload || true
 
+# web page and worker started without systemd (buzzctl.sh)
+for n in web worker; do
+  if [ -f "$ROOT/Work/run/$n.pid" ]; then
+    act "Stopping the $n process" bash -c "kill \$(cat '$ROOT/Work/run/$n.pid') 2>/dev/null || true; rm -f '$ROOT/Work/run/$n.pid'"
+  fi
+done
 # a worker started without systemd
 if [ -f "$ROOT/Work/worker.lock" ]; then
   act "Stopping the worker process" bash -c "kill \$(cat '$ROOT/Work/worker.lock') 2>/dev/null || true; rm -f '$ROOT/Work/worker.lock'"
