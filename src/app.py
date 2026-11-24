@@ -1158,7 +1158,7 @@ def usage_section():
     p = usage.policy()
     per_day, per_week = usage.reel_limit()
     with st.container(border=True):
-        a, b, c, d, e = st.columns([1.25, 0.8, 1.05, 0.8, 2.4], vertical_alignment="center")
+        a, b, c, d, e = st.columns([1.7, 0.8, 1.2, 0.8, 1.9], vertical_alignment="center")
         a.markdown("Each person can make")
         b.number_input("Reels a day", min_value=0, step=1, value=per_day, key="u_d_dr", label_visibility="collapsed")
         c.markdown("reels a day and")
