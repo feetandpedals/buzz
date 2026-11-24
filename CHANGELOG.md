@@ -11,6 +11,15 @@ AI Reel Studio: reels from photos, videos or just an idea
 - Fixed the installer re-downloading FFmpeg on every run.
 - New `DEPLOY.md`, an end-to-end server check (`tests/smoke_reel.py`) and a stand-in for Claude for key-free install tests.
 
+## 2.1.2 (24 Nov 2026): One-line reel limit
+
+- Settings now has one line: "Each person can make [ ] reels a day and [ ] a week." 0 means no limit. The per-person rows are gone; old per-person numbers are ignored and cleared on save.
+- The Pause everyone's reels switch stays, for the owner only.
+- Members at their limit see a plain message on Create and the Create button is greyed out, instead of the reel failing after upload. Reels waiting to start count too.
+- Fixed: the owner was limited even though the screen said otherwise.
+- Fixed: a reel that restarted (worker restart or Try again) was counted twice and could block itself.
+- Fixed: on a new install, members without their own Claude key could not make reels until the owner pressed Save once.
+
 ## 2.1.1 (13 Nov 2026): Simpler reel limits
 
 - Settings now has one plain Reel limits box: reels per day and reels per week for everyone, and the same two boxes for each person. 0 means no limit.

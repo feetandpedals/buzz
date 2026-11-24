@@ -17,7 +17,7 @@ Buzz turns a stack of photos and videos, or just a written idea, into a ready-to
 ## What it does
 
 - **Runs anywhere.** Windows PC, Linux PC or a Linux server, with the same features. Several people can use one server.
-- **Your reels, your key.** Everyone sees only their own reels and can use their own Claude key. The owner sets simple reels-per-day and reels-per-week limits for everyone or for each person, and has an emergency pause switch.
+- **Your reels, your key.** Everyone sees only their own reels and can use their own Claude key. The owner sets one reel limit for everyone (reels a day and reels a week) and has an emergency pause switch.
 - **Two ways to start.** Upload photos and videos (with your own song, music made for you, or silent), or type an idea and get a finished reel from the words alone.
 - **Smart editing.** The AI studies your pictures and clips, plans a story, cuts on the beat, keeps text clear of faces, and lets you choose the opening and closing shot.
 - **Instagram pack.** Hook, caption, 5 hashtags, cover text, best time to post and alt text for every reel.
@@ -80,7 +80,7 @@ Then put nginx in front (a ready file is in `deploy/`), open the site, create th
 
 ## People, keys and limits
 
-Several people can sign in. Everyone sees only their own reels (the owner sees all) and can add their own Claude key. The owner can allow the shared key per person, set monthly token and daily reel limits and a studio budget, and pause all AI use with one switch.
+Several people can sign in. Everyone sees only their own reels (the owner sees all) and can add their own Claude key. Everyone may use the studio's key. The owner sets one line in Settings, "Each person can make N reels a day and N a week" (0 means no limit, the owner is never limited), and can pause everyone's reels with one switch. A member who reaches the limit sees a message on Create and cannot send another reel until the next day or week.
 
 ## Privacy and where things are kept
 
